@@ -95,9 +95,37 @@ def _per_test(kind: str, records: Sequence) -> List[dict]:
                       "latest": [_model_record(kind, r) for r in rs[:LATEST_PER_TEST]]}) for rs in groups.values()]
 
 
+_ALIAS_PREFIX = {"AllergyIntolerance": "A", "MedicationRequest": "M", "Condition": "C", "Observation": "O",
+                 "Encounter": "E", "Patient": "P"}
+
+
+def alias_for(source_id: str, aliases: Dict[str, str]) -> str:
+    """Stable short ref for a source id (A1, M3, O12...), assigned in first-seen order so an unchanged context gives the
+    same refs on every turn (the prompt cache keeps hitting). The server maps refs back before verification."""
+    if source_id not in aliases:
+        prefix = _ALIAS_PREFIX.get(source_id.split("/", 1)[0], "R")
+        aliases[source_id] = f"{prefix}{sum(a.startswith(prefix) and a[len(prefix):].isdigit() for a in aliases.values()) + 1}"
+    return aliases[source_id]
+
+
+def _alias_ids(node, aliases: Dict[str, str]) -> None:
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "source_id" and isinstance(v, str):
+                node[k] = alias_for(v, aliases)
+            elif k in ("also_source_ids", "source_ids") and isinstance(v, list):
+                node[k] = [alias_for(x, aliases) if isinstance(x, str) else x for x in v]
+            else:
+                _alias_ids(v, aliases)
+    elif isinstance(node, list):
+        for x in node:
+            _alias_ids(x, aliases)
+
+
 def build_model_context(ctx: PatientContext, flags: Sequence[Flag],
                         history: Sequence[Tuple[str, Sequence[RenderedLine]]], data_as_of: str,
-                        today: Optional[date] = None, fenced: bool = True) -> str:
+                        today: Optional[date] = None, fenced: bool = True,
+                        aliases: Optional[Dict[str, str]] = None) -> str:
     """Compact JSON for Claude: load status, window and cited records per resource; age and sex only; rule flags;
     the last turns as questions plus server-rendered lines (never raw model output). All of it is chart or user text,
     so it sits inside one fence the data cannot close ('<' and '>' are JSON-escaped). No name, DOB, MRN or contacts."""
@@ -115,6 +143,8 @@ def build_model_context(ctx: PatientContext, flags: Sequence[Flag],
                                                      for ln in lines]}
                     for q, lines in list(history)[-HISTORY_TURNS:]],
     }
+    if aliases is not None:  # short refs instead of 50-character FHIR ids: several times fewer tokens (latency)
+        _alias_ids(data, aliases)
     body = json.dumps(data, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e")
     if not fenced:  # llm.plan_answer adds the <chart_data> fence itself
         return body

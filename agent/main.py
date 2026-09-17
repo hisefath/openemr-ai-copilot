@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+import os
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
@@ -38,11 +40,36 @@ FRESH_S = 120                 # §3 freshness: refetch anything older before ans
 LLM_RESERVE_S = 4.0           # a question waits for a running prefetch only while this much deadline remains
 AUDIT_TIMEOUT_S = 3.0
 PATIENT_TOOLS = [ToolName.get_lab_history, ToolName.get_encounters]  # §3: one round, patient sessions only
+# The server, not the model, decides whether a question can need older records (UC3 older visits, UC4 trends). Haiku
+# called a tool on every question when offered, adding a second call that pushed answers past the deadline.
+# Trends no longer need a tool: the server fetches a requested trend's history itself (_fetch_trend_history).
+HISTORY_QUESTION = re.compile(r"\b(older|earlier|years? ago|months? ago|back in|in (?:19|20)\d{2}|since (?:19|20)\d{2}|"
+                              r"(?:19|20)\d{2}|long ago|first (?:visit|diagnos\w*))\b", re.I)
+
+
+def tools_for(question: str) -> List[ToolName]:
+    return PATIENT_TOOLS if HISTORY_QUESTION.search(question) else []
 TOOL_WINDOWS = {"get_lab_history": "labs", "get_encounters": "encounters"}
 
 
 def _epoch_iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds")
+
+
+async def _warm_up_structured_output(client: anthropic.AsyncAnthropic, settings: Settings) -> None:
+    """The first request for a new output schema + tool set waits while Anthropic compiles the grammar (measured: 20 s
+    cold vs 1.4 s warm, AUDIT OPS-8), which would push the first physician's question past the 9 s deadline into the
+    fallback. One synthetic request with the production request shape at startup pays that cost instead. No PHI."""
+    async def no_tool(*_):
+        return "", False
+    try:
+        for tools in (PATIENT_TOOLS, []):  # both request shapes main.py sends compile their own grammar
+            _, meta = await llm.plan_answer(client, settings, llm.SYSTEM_PROMPT, '{"resources":{}}', "Brief me",
+                                            tools, Deadline(60.0), no_tool)
+            log.info("structured output warm-up", extra={"tools": len(tools), "reason": meta.reason, "calls": meta.calls,
+                                                          "cost_usd": round(meta.cost_usd, 5)})
+    except Exception as e:  # never blocks startup
+        log.warning("structured output warm-up failed", extra={"error": obs.error_code(e)})
 
 
 @asynccontextmanager
@@ -62,6 +89,8 @@ async def lifespan(app: FastAPI):
         log.warning("AUDIT_DB_HOST not set: audit rows are logged, not stored")
         app.state.audit = audit.FakeAuditWriter()
     app.state.pages = {"patient": smart.load_page(STATIC / "panel.html"), "schedule": smart.load_page(STATIC / "schedule.html")}
+    if os.environ.get("LLM_WARMUP", "true").lower() != "false":
+        app.state.warmup = asyncio.create_task(_warm_up_structured_output(app.state.llm, settings))
     yield
     await app.state.http.aclose()
     lf = obs.langfuse_client()
@@ -329,6 +358,50 @@ async def _context(request: Request, session: Session, deadline: Deadline, sink:
     return session.context
 
 
+TREND_YEARS = 5
+TREND_FETCH_MIN_S = 2.5
+MAX_TREND_FETCHES = 2
+
+
+def _unalias(plan, aliases: Dict[str, str]):
+    """Map the model's short refs back to FHIR source ids. An unknown ref stays as written, so verification withholds it
+    and audits it as denied, exactly like an invented id."""
+    if plan is None:
+        return None
+    back = {v: k for k, v in aliases.items()}
+    items = [i.model_copy(update={"source_id": back.get(i.source_id, i.source_id)}) if getattr(i, "kind", None) == "record"
+             else i for i in plan.items]
+    clarify = plan.clarify.model_copy(update={"candidate_source_ids": [back.get(x, x) for x in plan.clarify.candidate_source_ids]}) \
+        if plan.clarify else None
+    return plan.model_copy(update={"items": items, "clarify": clarify})
+
+
+def _history_text(session: Session, aliases: Dict[str, str]) -> str:
+    """Prior turns as the physician saw them (questions + server-rendered lines with sources), never raw model output."""
+    turns = [{"question": t.question, "shown": [{"text": ln.text, "source_ids": [aliases.get(x, x) for x in ln.source_ids]}
+                                                for ln in t.lines]}
+             for t in list(session.history)[-render.HISTORY_TURNS:]]
+    return json.dumps(turns, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e") if turns else ""
+
+
+async def _fetch_trend_history(request: Request, session: Session, ctx: PatientContext, plan, deadline: Deadline,
+                               rows: List[AuditEvent], today: date) -> PatientContext:
+    """A requested trend gets the lab's full recent history from the server, not only the 18-month prefetch, and not
+    only when the model remembers to call a tool (UC4). Same patient-locked, audited FHIR path; skipped when time is short."""
+    labs = list(dict.fromkeys(i.lab for i in plan.items if getattr(i, "kind", None) == "trend"))[:MAX_TREND_FETCHES]
+    if not labs or not deadline.has(TREND_FETCH_MIN_S):
+        return ctx
+    since = today.replace(year=today.year - TREND_YEARS).isoformat()
+    budget = Deadline(deadline.remaining() - 2.0)
+    loads = await asyncio.gather(*(fhir.get_lab_history(request.app.state.fhir, session.access_token, session.patient_id,
+                                                        LabHistoryInput(lab=lab[:80], since=since), budget,
+                                                        _fhir_recorder(request.app.state.fhir, session, rows),
+                                                        obs.correlation_id.get()) for lab in labs))
+    known = {sid for r in ctx.labs.records for sid in r.source_ids}
+    new = [r for load in loads if load.status is LoadStatus.ok for r in load.records if not set(r.source_ids) & known]
+    return ctx.model_copy(update={"labs": ctx.labs.model_copy(update={"records": ctx.labs.records + new})}) if new else ctx
+
+
 @app.post("/api/session/messages", response_model=MessageResponse)
 async def ask(request: Request, body: MessageRequest, authorization: Optional[str] = Header(None)):
     s: Settings = request.app.state.settings
@@ -368,9 +441,15 @@ async def _answer(request: Request, s: Settings, session: Session, body: Message
             ctx = ctx.model_copy(update={field: merged})
             return json.dumps([r.model_dump(exclude_none=True) for r in load.records], separators=(",", ":")), True
 
-        model_context = render.build_model_context(ctx, flags, list(session.history), ctx.fetched_at, today, fenced=False)
+        # History stays out of the cached chart block (it changes every turn, which would defeat the cache).
+        aliases: Dict[str, str] = {}
+        model_context = render.build_model_context(ctx, flags, [], ctx.fetched_at, today, fenced=False, aliases=aliases)
         plan, meta = await llm.plan_answer(request.app.state.llm, s, llm.SYSTEM_PROMPT, model_context, body.question,
-                                           PATIENT_TOOLS, deadline, run_tool)
+                                           tools_for(body.question), deadline, run_tool,
+                                           history=_history_text(session, aliases))
+        plan = _unalias(plan, aliases)
+        if plan is not None:
+            ctx = await _fetch_trend_history(request, session, ctx, plan, deadline, rows, today)
         answer = verify.verify_and_render(plan, ctx, body.question, body.selected_source_id, flags, today, now)
 
         if plan is None:
@@ -384,6 +463,11 @@ async def _answer(request: Request, s: Settings, session: Session, body: Message
                                "intent": plan.intent.value if plan else None, "anthropic_request_ids": meta.request_ids,
                                "deadline_left_s": round(deadline.remaining(), 2)})
 
+        log.info("answer", extra={"outcome": answer.outcome.value, "withheld": answer.withheld_count,
+                                  "flags": len(answer.flags), "intent": plan.intent.value if plan else None,
+                                  "llm_reason": meta.reason, "llm_calls": meta.calls, "llm_cost_usd": round(meta.cost_usd, 6),
+                                  "input_tokens": meta.tokens.get("input", 0), "output_tokens": meta.tokens.get("output", 0),
+                                  "tools_run": meta.tools_run, "elapsed_s": round(s.question_deadline_s - deadline.remaining(), 2)})
         rows.append(_event(AuditEventType.llm_call, session, patient_id=session.patient_id,
                            outcome="ok" if plan else "no_plan", detail=meta.reason, http_status=meta.http_status))
         rows.append(_event(AuditEventType.question, session, patient_id=session.patient_id,

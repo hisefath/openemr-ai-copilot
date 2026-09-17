@@ -71,7 +71,8 @@ class FakeClaude:
 def client(monkeypatch):
     for k, v in {"OPENEMR_FHIR_BASE": BASE, "PUBLIC_ISSUER": BASE, "SMART_CLIENT_ID": "copilot",
                  "SMART_CLIENT_SECRET": "test-secret", "ALLOW_API_SESSIONS": "true", "EVAL_PATIENT_IDS": PID,
-                 "AGENT_PUBLIC_URL": "http://agent.test", "HMAC_KEY": "test-hmac", "ANTHROPIC_API_KEY": "dummy"}.items():
+                 "AGENT_PUBLIC_URL": "http://agent.test", "HMAC_KEY": "test-hmac", "ANTHROPIC_API_KEY": "dummy",
+                 "LLM_WARMUP": "false"}.items():
         monkeypatch.setenv(k, v)
     monkeypatch.delenv("AUDIT_DB_HOST", raising=False)
     monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
@@ -181,3 +182,37 @@ def test_api_session_for_non_allowlisted_patient_is_refused(client):
 
 def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
+
+
+@pytest.mark.parametrize("question,offered", [
+    ("Brief me on this patient.", False), ("Is it safe to start amoxicillin?", False),
+    ("What medications is John Smith on?", False), ("Show me the trend on creatinine.", False),
+    ("What changed since her last visit?", False), ("What was her A1c back in 2021?", True),
+    ("Any visits from years ago?", True)])
+def test_tools_offered_only_for_history_questions(question, offered):
+    """Guards: a tool round on every question (measured live: a second Claude call pushed briefs past the 9 s deadline)."""
+    assert bool(main.tools_for(question)) is offered
+
+
+def test_trend_request_fetches_lab_history_on_the_server(client):
+    """Guards: a trend limited to the 18-month prefetch because the model didn't call the history tool (UC4)."""
+    handle = open_session(client)
+    before = sum(e.event.value == "fhir_read" for e in main.app.state.audit.events)
+    main.app.state.llm = FakeClaude(plan_message({"intent": "changes", "items": [{"kind": "trend", "lab": "2160-0", "section": "changes"}]}))
+    body = ask(client, handle, "Show me the trend on creatinine").json()
+    reads = [e for e in main.app.state.audit.events if e.event.value == "fhir_read"][before:]
+    assert any(e.fhir_path.endswith("/Observation") for e in reads)
+    assert body["outcome"] in ("pass", "pass_with_removals") and any("Creatinine" in ln["text"] for s in body["sections"] for ln in s["lines"])
+
+
+def test_short_refs_map_back_and_unknown_refs_are_withheld(client):
+    """Guards: the model citing short refs that don't map to this patient's records reaching the physician, and
+    refs not mapping back to real ids before verification (latency fix, measured live)."""
+    handle = open_session(client)
+    main.app.state.llm = FakeClaude(plan_message({"intent": "safety_check", "items": [
+        {"kind": "record", "source_id": "A1", "section": "safety"}, {"kind": "record", "source_id": "M999", "section": "safety"}]}))
+    body = ask(client, handle, "Any allergies?").json()
+    context = main.app.state.llm.calls[0]["messages"][0]["content"][0]["text"]
+    assert "AllergyIntolerance/" not in context and '"source_id":"A1"' in context
+    lines = [ln for s in body["sections"] for ln in s["lines"]]
+    assert any(PENICILLIN in ln["source_ids"] for ln in lines) and body["withheld_count"] == 1
