@@ -62,10 +62,15 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
-    env_file: ../../agent/.env
+    env_file:
+      - path: ../../agent/.env          # API keys (gitignored)
+        required: true
+      - path: ../../agent/.env.local    # local OpenEMR URLs, SMART client, audit DB (gitignored; see README)
+        required: false
     environment:
-      OPENEMR_FHIR_BASE: http://openemr/apis/default/fhir
       PORT: "8000"
+    volumes:
+      - ./certs/ca.pem:/certs/ca.pem:ro   # verifies the MySQL cert for the audit table
 
 volumes:
   mysql-data: {}
