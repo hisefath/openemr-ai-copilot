@@ -1,0 +1,72 @@
+# Local stack that mirrors the Railway deployment (same OpenEMR image, MySQL 9.4,
+# verified TLS between them, agent built from ../../agent).
+#
+#   ./make-certs.sh                      # once: local CA + MySQL cert for host "mysql"
+#   docker-compose -f compose.yml up -d  # OpenEMR http://localhost:8300, agent http://localhost:8000
+#
+# Demo credentials only (override via env). Ports bind to 127.0.0.1, never the LAN.
+name: agentforge-local
+
+services:
+  mysql:
+    image: mysql:9.4
+    command:
+      - --ssl-ca=/certs/ca.pem
+      - --ssl-cert=/certs/server-cert.pem
+      - --ssl-key=/certs/server-key.pem
+      - --require-secure-transport=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LOCAL_MYSQL_ROOT_PASS:-local-root-demo}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./certs/ca.pem:/certs/ca.pem:ro
+      - ./certs/server-cert.pem:/certs/server-cert.pem:ro
+      - ./certs/server-key.pem:/certs/server-key.pem:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  openemr:
+    image: openemr/openemr:8.5.0
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8300:80"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASS: ${LOCAL_MYSQL_ROOT_PASS:-local-root-demo}
+      MYSQL_USER: openemr
+      MYSQL_PASS: ${LOCAL_MYSQL_PASS:-local-openemr-demo}
+      MYSQL_DATABASE: openemr
+      OE_USER: admin
+      OE_PASS: ${LOCAL_OE_PASS:-pass}
+    volumes:
+      - sites:/var/www/localhost/htdocs/openemr/sites
+      # OpenEMR turns on verified TLS to MySQL when this file exists
+      # (src/BC/DatabaseConnectionOptions.php inferSslPaths, openemr.sh wait_for_mysql).
+      - ./certs/ca.pem:/var/www/localhost/htdocs/openemr/sites/default/documents/certificates/mysql-ca:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/meta/health/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+  agent:
+    build: ../../agent
+    depends_on:
+      openemr:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: ../../agent/.env
+    environment:
+      OPENEMR_FHIR_BASE: http://openemr/apis/default/fhir
+      PORT: "8000"
+
+volumes:
+  mysql-data: {}
+  sites: {}
