@@ -347,6 +347,8 @@ async def _context(request: Request, session: Session, deadline: Deadline, sink:
     if session.context is None:
         if task is not None and task.done() and task.exception() is not None:
             if isinstance(task.exception(), HTTPException):
+                if task.exception().status_code >= 500:  # this request fails too; A2 counts errors per request
+                    obs.count(obs.Metric.error, kind=str(task.exception().detail).split(":", 1)[0])
                 raise task.exception()
         rows: List[AuditEvent] = []
         ctx = await fhir.prefetch(request.app.state.fhir, session.access_token, session.patient_id, date.today(),

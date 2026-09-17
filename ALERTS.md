@@ -6,6 +6,7 @@ Three alerts sit on top of the Langfuse dashboard ([KEY_METRICS.md](KEY_METRICS.
 
 - **Evaluator:** [`agent/alerts.py`](agent/alerts.py), deployed as the Railway cron service `alerts` (same image as the agent, start command `python alerts.py`, schedule `*/5 * * * *`, never restarted). It reads Langfuse's public observations API (v2; the legacy traces API is closed to new Langfuse organizations).
 - **Window:** the 15 minutes ending **10 minutes ago**. Langfuse Cloud took 1 to 8 minutes to make new spans queryable in our measurements, so a window ending "now" undercounts. The cost is detection delay: an incident pages 10 to 25 minutes after it starts. Faster paging needs metrics pushed to a real-time backend (OTel/Prometheus), not a trace store.
+- **Production only:** the evaluator reads the `production` environment (`ALERT_ENVIRONMENT`). The Railway agent sets `LANGFUSE_TRACING_ENVIRONMENT=production`; local runs, evals and fault tests report as `default`, so they can't page anyone. (Before this filter, the fault tests below made the deployed cron report alerts for traffic production never had.)
 - **Minimum volume:** an alert only evaluates when there are **≥ 20 requests** in the window. Below that, one slow request would page someone at 3 AM for nothing.
 - **Notification:** a POST to `ALERT_WEBHOOK_URL` (Slack or Discord incoming webhook) when set. Every run also prints one JSON line (`"alert": true|false`, values, thresholds, window), which Railway log search finds as `alert=true`. No webhook is configured for this project yet (there is no team channel), so Railway logs are where alerts show up.
 - **Exit code = the monitor's own health:** 0 whenever the window was evaluated, firing or not; 1 only when the evaluator couldn't reach Langfuse or couldn't deliver a webhook. A "crashed" run in Railway therefore means alerting itself is broken. (The first version exited 1 on a firing alert, and Railway showed every run during the fault tests as crashed.)
@@ -14,18 +15,19 @@ Three alerts sit on top of the Langfuse dashboard ([KEY_METRICS.md](KEY_METRICS.
 - **Replay:** `python alerts.py <from> <to>` evaluates any past window (ISO timestamps), for postmortems and for the tests below.
 
 Definitions used below (same as ARCHITECTURE §7):
-- **Request** = one `POST /api/session/messages` or `POST /api/schedule/scan`.
-- **Error** = HTTP 5xx, or a fallback answer caused by the LLM (timeout, 429, refusal, truncation), an unparseable plan, or a verifier exception. A 4xx caused by the caller (bad input, expired session) is not an error. The agent emits one `metric.error` Langfuse event per error, with a `kind`; the evaluator counts those events (capped at one per request).
+- **Request** = one `POST /api/session/messages` (a question) or `POST /api/schedule/scan`.
+- **Error** = HTTP 5xx, or a fallback answer caused by the LLM (timeout, 429, refusal, truncation), an unparseable plan, or a verifier exception. A 4xx caused by the caller (bad input, expired session) is not an error. The agent emits a `metric.error` Langfuse event per error, with a `kind`; the evaluator counts **requests with at least one error** (distinct traces), so a question that times out and then fails its audit write counts once. Errors on the launch path (`oauth_unavailable` on the SMART callback) count too, even though launches aren't in the denominator: a physician who can't open the Co-Pilot is as broken as one who gets an error screen.
 - **Tool failure** = any FHIR call (prefetch or tool) that ended `error` or `timeout`. `forbidden` (403, role can't view) is reported separately and does not count, because it's working as designed.
 
 ---
 
-## A1 — p95 latency above 10 seconds
+## A1 — p95 question latency above 8 seconds
 
 | | |
 |---|---|
-| **Condition** | p95 of request duration > **10 s** over 15 min (≥ 20 requests) |
+| **Condition** | p95 of question duration (`POST /api/session/messages`) > **8 s** over 15 min (≥ 20 requests). Schedule scans are excluded: they have their own 60 s budget |
 | **Severity** | High: physicians stop waiting after ~10 s and walk into the room without context |
+| **Why 8 s, not 10 s** | Every question has a 9 s deadline, after which the physician gets a non-AI fallback. So p95 can't exceed ~9 s for the usual causes (slow Claude, slow OpenEMR), and a 10 s threshold would never fire for them. 8 s pages when answers are running into the deadline; the fallbacks that follow page through A2. The threshold is `min(10, QUESTION_DEADLINE_S − 1)`. |
 | **What it usually means** | OpenEMR is slow (most likely: PHP workers saturated, MySQL contention, or a large patient history), or Claude is slow/rate-limited |
 
 **On-call response:**
@@ -34,7 +36,7 @@ Definitions used below (same as ARCHITECTURE §7):
    - *Mitigate:* lower `OPENEMR_CONCURRENCY` if OpenEMR is thrashing, or restart the OpenEMR service if memory is pinned. Shorter lab and vitals windows can be set without a deploy.
 3. **If Claude dominates:** check [status.anthropic.com](https://status.anthropic.com) and Claude spans for 429s.
    - *Mitigate:* the per-question deadline already falls back to non-AI answers after 9 s; confirm fallbacks are appearing rather than hangs.
-4. **Escalate** if p95 stays above 10 s for 30 minutes after mitigation: post in the team channel with the dashboard link and the dominant span.
+4. **Escalate** if p95 stays above 8 s for 30 minutes after mitigation: post in the team channel with the dashboard link and the dominant span.
 
 ## A2 — Error rate above 5 percent
 
@@ -78,4 +80,6 @@ Each alert was fired once on purpose with [`evals/fault_injection.py`](evals/fau
 | A2 | Invalid `ANTHROPIC_API_KEY` | **Yes** | Error rate **100 %** (`llm_api_error`), answers in 0.1 s as non-AI fallbacks. A1 and A3 stayed quiet. |
 | A3 | `OPENEMR_FHIR_BASE` pointed at a path OpenEMR doesn't serve (OAuth still works) | **Yes** | Tool failure rate **100 %**: every FHIR call returned an error. Answers still arrived in about 1 s as fallbacks that named each unavailable resource; A2 stayed quiet (0 %) because missing data isn't an LLM, verifier or server error, and A1 stayed quiet (p95 1.8 s). |
 
-**Deployed evaluator:** the Railway cron's first run (13:57 UTC) read the window 13:32–13:47, which held these local test requests, and logged `alert=true` with A1 (p95 11.1 s) and A2 (87 %) firing. Local and deployed agents currently report to the same Langfuse project; in production, set `LANGFUSE_TRACING_ENVIRONMENT` per deployment and filter the evaluator by environment.
+**Deployed evaluator:** its first runs (13:57–14:20 UTC) read windows holding these local test requests and logged `alert=true`. That exposed two problems, both fixed: a firing alert exited with code 1, so Railway showed each run as crashed, and local traffic was scored as production (the environment filter above). An adversarial review of the evaluator then found three more, also fixed: an error count that double-counted requests with two error kinds, an A1 threshold the question deadline made unreachable, and questions failing on a stored prefetch audit error without emitting an error metric.
+
+A1 in this table ran with a 15 s question deadline, so its threshold was 10 s; A2 and A3 ran with the default 9 s deadline (8 s threshold).

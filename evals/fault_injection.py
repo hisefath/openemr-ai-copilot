@@ -62,10 +62,14 @@ def docker(*args: str) -> str:
     return subprocess.run(["docker", *args], capture_output=True, text=True, check=True).stdout.strip()
 
 
+def fault_env(fault: str) -> dict:
+    return {"A1": {"QUESTION_DEADLINE_S": "15", "ANTHROPIC_BASE_URL": f"http://{PROXY}:8080"},
+            "A2": {"ANTHROPIC_API_KEY": "sk-ant-invalid-fault-injection"},
+            "A3": {"OPENEMR_FHIR_BASE": env_value("OPENEMR_FHIR_BASE").rstrip("/") + "/fault-injection"}}[fault]
+
+
 def start(fault: str) -> None:
-    env = {"A1": {"QUESTION_DEADLINE_S": "15", "ANTHROPIC_BASE_URL": f"http://{PROXY}:8080"},
-           "A2": {"ANTHROPIC_API_KEY": "sk-ant-invalid-fault-injection"},
-           "A3": {"OPENEMR_FHIR_BASE": env_value("OPENEMR_FHIR_BASE").rstrip("/") + "/fault-injection"}}[fault]
+    env = fault_env(fault)
     if fault == "A1":
         docker("run", "-d", "--rm", "--name", PROXY, "--network", NETWORK, "python:3.12-slim", "python", "-c", SLOW_PROXY)
     docker("run", "-d", "--rm", "--name", AGENT, "--network", NETWORK, "-p", "127.0.0.1:8001:8000",
@@ -103,14 +107,15 @@ def ask(n: int, per_session: int = 6) -> None:
         print(f"  q{i + 1:02d} http={r.status_code} outcome={body.get('outcome')} {time.monotonic() - t0:.1f}s", flush=True)
 
 
-def evaluate(start_at: datetime, end_at: datetime) -> dict:
+def evaluate(start_at: datetime, end_at: datetime, deadline_s: str) -> dict:
     """alerts.py over exactly this run's window, retried until Langfuse has ingested every request (bounded: 15 min;
     ingestion was measured at 1-8 min)."""
     window = [start_at.isoformat().replace("+00:00", "Z"), end_at.isoformat().replace("+00:00", "Z")]
     deadline = time.monotonic() + 900
     while True:
         out = subprocess.run(["docker", "run", "--rm", "-v", f"{ROOT / 'agent'}:/app", "-w", "/app",
-                              "--env-file", str(ROOT / "agent/.env"), "agentforge-agent-dev", "python", "alerts.py", *window],
+                              "--env-file", str(ROOT / "agent/.env"), "-e", "ALERT_ENVIRONMENT=default", "-e", f"QUESTION_DEADLINE_S={deadline_s}",
+                              "agentforge-agent-dev", "python", "alerts.py", *window],
                              capture_output=True, text=True).stdout.strip().splitlines()
         result = json.loads(out[-1]) if out else {"results": []}
         if (result["results"] and result["results"][0]["requests"] >= QUESTIONS_ASKED) or time.monotonic() > deadline:
@@ -132,7 +137,7 @@ def main() -> None:
     finally:
         stop()
     print(f"{fault}: waiting for Langfuse ingestion", flush=True)
-    result = evaluate(began, ended)
+    result = evaluate(began, ended, fault_env(fault).get("QUESTION_DEADLINE_S", "9"))
     print(json.dumps(result, indent=1))
 
 

@@ -11,9 +11,11 @@ import pytest
 from anthropic.types import Message
 from fastapi.testclient import TestClient
 
+import audit
 import fhir
 import main
 import observability as obs
+from schemas import AuditEventType
 
 FIX = json.loads((Path(__file__).parent / "fixtures" / "edge_patients.json").read_text())
 E1 = FIX["E1"]
@@ -162,6 +164,27 @@ def test_audit_failure_returns_no_phi(client):
     r = ask(client, handle, "Brief me")
     assert r.status_code == 503
     assert "Penicillin" not in r.text and r.json()["error"]["code"] == "audit_unavailable"
+
+
+def test_failed_prefetch_audit_fails_each_question_and_counts_each_as_an_error(client):
+    """Guards: every question in a session returning 503 after its prefetch couldn't be audited, while emitting no
+    error metric, so the A2 alert stays silent (found in review)."""
+    class FailFhirReads(audit.FakeAuditWriter):
+        async def write(self, event, timeout=audit.WRITE_TIMEOUT_S):
+            if event.event is AuditEventType.fhir_read:
+                raise audit.AuditUnavailable("test")
+            await super().write(event, timeout)
+
+    main.app.state.audit = FailFhirReads()
+    r = client.post("/api/sessions", json={"access_token": "a-demo-token-value", "patient_id": PID})
+    assert r.status_code == 200, r.text
+    handle = r.json()["session_handle"]
+    assert ask(client, handle, "Brief me").status_code == 503  # waits for the prefetch, which has counted its own error
+    before = obs.METRICS["error,kind=audit_unavailable"]
+    for _ in range(2):
+        r = ask(client, handle, "Brief me")
+        assert r.status_code == 503 and r.json()["error"]["code"] == "audit_unavailable" and "Penicillin" not in r.text
+    assert obs.METRICS["error,kind=audit_unavailable"] - before == 2
 
 
 def test_missing_or_unknown_session_is_401_with_error_envelope(client):
