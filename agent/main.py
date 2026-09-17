@@ -76,6 +76,10 @@ async def _warm_up_structured_output(client: anthropic.AsyncAnthropic, settings:
 async def lifespan(app: FastAPI):
     obs.configure_logging()
     settings = Settings.from_env()
+    ca_pem = os.environ.get("AUDIT_DB_CA_PEM")
+    if ca_pem and settings.audit_db_ca and not os.path.exists(settings.audit_db_ca):
+        # Railway variables are strings; the MySQL CA (a public certificate) becomes the file PyMySQL verifies against.
+        Path(settings.audit_db_ca).write_text(ca_pem if ca_pem.endswith("\n") else ca_pem + "\n")
     app.state.settings = settings
     app.state.http = httpx.AsyncClient(timeout=smart.OPENEMR_TIMEOUT)
     app.state.fhir = fhir.FhirClient(app.state.http, settings.fhir_base, settings.openemr_concurrency)

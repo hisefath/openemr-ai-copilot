@@ -266,7 +266,21 @@ Local development mirrors this: [deploy/local](deploy/local) (same image, MySQL 
 
 Sessions move to Redis and the agent runs multiple replicas. OpenEMR is the first ceiling: more PHP workers and memory, `api_log_option=1`, reduced per-SELECT auditing with compliance sign-off, indexes on patient-scoped joins (PERF-8), and a read replica for FHIR. UC5 scans precompute overnight for the next day's schedule. Langfuse moves to a HIPAA-eligible or self-hosted deployment; the audit table moves to a dedicated append-only store.
 
-## 12. Decisions not taken
+## 12. As built: what live measurement changed
+
+The design above held. Running it against real Claude and real OpenEMR data changed five implementation details; each is covered by a test and an eval case.
+
+| Measured problem | Change | Effect |
+|---|---|---|
+| First structured-output request per schema took 20 s (grammar compile) | Warm-up request per request shape at startup | No cold-start timeouts; $0.005 per deploy |
+| Offered tools, Haiku called one on every question, adding a second call | The **server** offers tools only when a question reaches beyond the prefetch windows (explicit years, "ago", "older") | 61 of 63 answers use one Claude call |
+| Prompt cache never hit: history lived inside the cached chart block | Chart block cached; history sent as its own uncached `<history>` block | Follow-ups $0.0012 vs $0.0095 for the first question |
+| Briefs timed out: ~25-token FHIR UUIDs per cited record | Model context uses short stable refs (`A1`, `M3`, `O12`); the server maps them back before verification, and unknown refs are withheld and audited like invented ids | p50 latency 4.5 s → 2.1 s; output tokens ~3× smaller |
+| Trends showed only the 18-month prefetch because the model didn't call the history tool | A trend item makes the **server** fetch that lab's 5-year history (patient-locked, audited) before rendering | Creatinine trend 2 → 4 points |
+
+Measured on the local stack (32 live eval cases, 63 live answers): p50 2.1 s, p95 5.2 s, one Claude call per answer, $0.0031 mean cost per answer ([evals](evals/README.md), [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md)).
+
+## 13. Decisions not taken
 
 | Option | Why not |
 |---|---|
