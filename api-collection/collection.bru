@@ -1,0 +1,29 @@
+docs {
+  # Clinical Co-Pilot API collection
+
+  Run the folders in order. Synthetic demo data only.
+
+  1. Pick an environment (`local` or `deployed`).
+  2. Get an OpenEMR access token: Collection settings > Auth > OAuth 2.0 > Get Access Token. Sign in as the demo
+     physician (credentials are provided with the submission) and choose the patient when OpenEMR asks. Copy the
+     access token into the `access_token` environment secret.
+  3. Run "0 Service", then each patient folder. Each folder opens its own session; the session handle is stored
+     automatically and sent as `Authorization: Bearer` on the following requests.
+
+  Every request has tests. Every response carries `X-Correlation-ID`, which matches the Langfuse trace and the audit table.
+}
+
+auth {
+  mode: oauth2
+}
+
+auth:oauth2 {
+  grant_type: authorization_code
+  callback_url: {{oauth_callback_url}}
+  authorization_url: {{openemr}}/oauth2/default/authorize
+  access_token_url: {{openemr}}/oauth2/default/token
+  client_id: {{client_id}}
+  client_secret: {{client_secret}}
+  scope: {{scope}}
+  pkce: true
+}

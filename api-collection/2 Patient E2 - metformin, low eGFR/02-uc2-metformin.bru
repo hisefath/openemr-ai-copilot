@@ -1,0 +1,40 @@
+meta {
+  name: UC2 Is it safe to continue metformin
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{agent}}/api/session/messages
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_e2}}
+}
+
+body:json {
+  {
+    "question": "Is it safe to continue metformin?"
+  }
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("every rendered line cites a source", function() {
+    for (const s of res.getBody().sections) for (const l of s.lines) expect(l.source_ids.length).to.be.above(0);
+  });
+  test("metformin with eGFR below 30 and critical potassium flagged", function() {
+    const ids = res.getBody().flags.map(x => x.rule_id);
+    expect(ids).to.include("metformin-low-egfr");
+    expect(ids).to.include("critical-lab");
+  });
+}

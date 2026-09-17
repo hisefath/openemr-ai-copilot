@@ -1,0 +1,13 @@
+vars {
+  agent: http://localhost:8000
+  openemr: http://localhost:8300
+  oauth_callback_url: http://localhost:8000/smart/callback
+  scope: openid fhirUser launch/patient user/Patient.rs user/AllergyIntolerance.rs user/MedicationRequest.rs user/Condition.rs user/Observation.rs user/Encounter.rs user/Appointment.rs
+  patient_e1: a2c40ed4-0a26-47a5-a11c-0b0df00c9ddd
+  patient_e2: a2c40edd-9c82-460a-8151-0892e7741f38
+  client_id:
+}
+vars:secret [
+  client_secret,
+  access_token
+]

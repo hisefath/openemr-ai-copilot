@@ -1,0 +1,38 @@
+meta {
+  name: UC1 Brief me
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{agent}}/api/session/messages
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_e1}}
+}
+
+body:json {
+  {
+    "question": "Brief me on this patient."
+  }
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("every rendered line cites a source", function() {
+    for (const s of res.getBody().sections) for (const l of s.lines) expect(l.source_ids.length).to.be.above(0);
+  });
+  test("answer is verified or a cited fallback", function() {
+    expect(["pass", "pass_with_removals", "fail"]).to.include(res.getBody().outcome);
+  });
+}

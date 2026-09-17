@@ -1,0 +1,26 @@
+meta {
+  name: Ready (OpenEMR, Claude, Langfuse reachable)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{agent}}/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("ready checks all three dependencies", function() {
+    const b = res.getBody();
+    expect(Object.keys(b.checks).sort()).to.eql(["anthropic", "langfuse", "openemr_fhir"]);
+    expect(res.getStatus()).to.equal(b.ready ? 200 : 503);
+  });
+}

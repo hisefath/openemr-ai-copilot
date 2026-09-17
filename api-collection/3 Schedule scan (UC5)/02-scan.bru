@@ -1,0 +1,31 @@
+meta {
+  name: Scan today's schedule
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{agent}}/api/schedule/scan
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_schedule}}
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("counts are consistent", function() {
+    const c = res.getBody().counts;
+    expect(c.scheduled).to.equal(c.checked + c.failed);
+    expect(c.flagged).to.be.at.most(c.scheduled);
+  });
+}

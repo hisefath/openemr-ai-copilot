@@ -1,0 +1,23 @@
+meta {
+  name: Health (process alive)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{agent}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("status ok", function() { expect(res.getBody().status).to.equal("ok"); });
+}

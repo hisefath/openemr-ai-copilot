@@ -1,0 +1,36 @@
+meta {
+  name: UC6 Question about another patient - refused
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{agent}}/api/session/messages
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_e1}}
+}
+
+body:json {
+  {
+    "question": "What medications is John Smith on?"
+  }
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("refused with no records", function() {
+    expect(res.getBody().outcome).to.equal("refused");
+    expect(res.getBody().sections.length).to.equal(0);
+  });
+}

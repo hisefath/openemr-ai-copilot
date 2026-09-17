@@ -1,0 +1,13 @@
+vars {
+  agent: https://agent-production-e0ed.up.railway.app
+  openemr: https://openemr-production-8676.up.railway.app
+  oauth_callback_url: https://agent-production-e0ed.up.railway.app/smart/callback
+  scope: openid fhirUser launch/patient user/Patient.rs user/AllergyIntolerance.rs user/MedicationRequest.rs user/Condition.rs user/Observation.rs user/Encounter.rs user/Appointment.rs
+  patient_e1:
+  patient_e2:
+  client_id:
+}
+vars:secret [
+  client_secret,
+  access_token
+]

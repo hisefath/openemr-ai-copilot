@@ -1,0 +1,30 @@
+meta {
+  name: Session status - banner, data status, flags
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{agent}}/api/session
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_e1}}
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("patient session with load statuses", function() {
+    expect(res.getBody().kind).to.equal("patient");
+    expect(res.getBody().load_statuses).to.be.an("object");
+  });
+}

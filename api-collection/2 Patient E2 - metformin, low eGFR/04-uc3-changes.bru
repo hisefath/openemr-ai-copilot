@@ -1,0 +1,36 @@
+meta {
+  name: UC3 What changed since the last visit
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{agent}}/api/session/messages
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{session_e2}}
+}
+
+body:json {
+  {
+    "question": "What changed since her last visit?"
+  }
+}
+
+tests {
+  test("correlation id header matches the body or error envelope", function() {
+    const cid = res.getHeader("x-correlation-id");
+    expect(cid).to.be.a("string");
+    const b = res.getBody();
+    if (b && b.correlation_id) expect(b.correlation_id).to.equal(cid);
+    if (b && b.error) expect(b.error.correlation_id).to.equal(cid);
+  });
+  test("HTTP 200", function() { expect(res.getStatus()).to.equal(200); });
+  test("no invented start or stop dates", function() {
+    const text = res.getBody().sections.flatMap(s => s.lines).map(l => l.text).join("\n");
+    expect(text).to.not.match(/\b(started|stopped)\b/i);
+  });
+}
