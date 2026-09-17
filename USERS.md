@@ -21,7 +21,7 @@ This is the source of truth for scope. Every capability in [ARCHITECTURE.md](ARC
 
 ## Workflow: where the agent enters her day
 
-**8:40 AM, before the first patient.** Dr. Chen opens today's schedule in OpenEMR. She wants to know which visits need extra attention before the day starts snowballing (UC5).
+**8:40 AM, before the first patient.** Dr. Chen opens the Co-Pilot schedule scan in its own browser window and signs in to OpenEMR once. She wants to know which visits need extra attention before the day starts snowballing (UC5).
 
 **Between rooms, all day** (the core loop, ~20 times a day):
 
@@ -83,20 +83,23 @@ Each use case lists the data it needs, what "done" looks like, and **why a conve
 
 ## Traceability
 
+Capabilities as designed in [ARCHITECTURE.md](ARCHITECTURE.md). Nothing is built that lacks a check mark.
+
 | Capability | UC1 | UC2 | UC3 | UC4 | UC5 | UC6 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Launch from the chart, bound to patient + user (SMART EHR launch) | ✓ | ✓ | ✓ | ✓ | | ✓ |
-| Launch from the schedule, bound to user (no patient) | | | | | ✓ | ✓ |
-| Patient demographics tool | ✓ | | | | ✓ | |
-| Problems tool | ✓ | | ✓ | | ✓ | |
-| Medications tool | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| Allergies tool | ✓ | ✓ | | | ✓ | |
-| Labs tool | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| Vitals tool | ✓ | | ✓ | ✓ | | |
-| Encounters tool | ✓ | | ✓ | | | |
-| Appointments tool | | | | | ✓ | |
-| Deterministic clinical rules (verification) | | ✓ | | | ✓ | |
-| Source attribution (verification) | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| Multi-turn memory, per patient | | | | ✓ | | |
-| Tool chaining across patients | | | | | ✓ | |
-| User-token authorization, refusal + audit log | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| SMART EHR launch from the chart, patient bound on the server | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| Standalone launch for the schedule scan, user bound | | | | | ✓ | ✓ |
+| Prefetch: patient, allergies, medications, problems, labs (18 mo), vitals (12 mo), encounters (24 mo) | ✓ | ✓ | ✓ | ✓ | | |
+| Normalization of OpenEMR data defects | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| Tool `get_lab_history` (one round) | | | | ✓ | | |
+| Tool `get_encounters` (one round) | | | ✓ | | | |
+| Tool `scan_todays_schedule` (deterministic chaining across patients) | | | | | ✓ | |
+| Claude selects and ranks records; server renders every sentence | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| Server-built trends | | | ✓ | ✓ | | |
+| Deterministic rules incl. drugs named in the question | ✓ | ✓ | | | ✓ | |
+| Server-generated absence and coverage ("not recorded", "unavailable") | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| Multi-turn history (questions + verified items), per patient | | | | ✓ | | |
+| Clarify with record chips | | | | ✓ | | |
+| Scope-violation refusal + audit row | | | | | | ✓ |
+| Patient banner on every answer | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Non-AI fallback | ✓ | ✓ | ✓ | ✓ | ✓ | |
