@@ -2,12 +2,15 @@
 
 Reads the last WINDOW_MIN minutes from the Langfuse v2 observations API (the legacy traces API is unavailable to new
 organizations), evaluates each alert once there are at least MIN_REQUESTS requests, and posts firing alerts to
-ALERT_WEBHOOK_URL (Slack/Discord incoming webhook) or prints them as JSON lines. No PHI: only counts, rates, thresholds.
+ALERT_WEBHOOK_URL (Slack/Discord incoming webhook). Every run prints one JSON line. No PHI: only counts, rates, thresholds.
+Exit code is the evaluator's health, not the alerts': 0 when the window was evaluated (firing or not), 1 when it couldn't
+evaluate or couldn't deliver a webhook, so a "crashed" Railway cron run means the monitor itself is broken.
 Run every 5 minutes (Railway cron):  python alerts.py
 """
 import json
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
@@ -34,7 +37,11 @@ def fetch(client: httpx.Client, name: str, start: datetime, end: datetime, field
                   "toStartTime": end.isoformat().replace("+00:00", "Z"), "limit": PAGE_LIMIT, "fields": fields}
         if cursor:
             params["cursor"] = cursor
-        r = client.get("/api/public/v2/observations", params=params)
+        for attempt in range(4):  # Langfuse rate-limits its public API; wait it out (bounded: ~7 s)
+            r = client.get("/api/public/v2/observations", params=params)
+            if r.status_code != 429:
+                break
+            time.sleep(min(float(r.headers.get("retry-after") or 2 ** attempt), 10))
         r.raise_for_status()
         body = r.json()
         for o in body.get("data", []):
@@ -84,14 +91,17 @@ def main() -> int:
     results = evaluate(requests, errors, fhir_calls, tool_failures)
     window = {"from": start.isoformat(timespec="seconds"), "to": end.isoformat(timespec="seconds")}
     firing = [r for r in results if r["firing"]]
+    print(json.dumps({"alert": bool(firing), "window": window, "results": results}), flush=True)  # before the webhook
     webhook = os.environ.get("ALERT_WEBHOOK_URL")
-    for r in firing:
+    for r in firing if webhook else []:
         text = (f":rotating_light: {r['alert']} = {r['value']} (threshold {r['threshold']}) over {WINDOW_MIN} min, "
                 f"{r['requests']} requests. Runbook: ALERTS.md")
-        if webhook:
-            httpx.post(webhook, json={"text": text, "content": text}, timeout=10)
-    print(json.dumps({"alert": bool(firing), "window": window, "results": results}))
-    return 1 if firing else 0
+        try:
+            httpx.post(webhook, json={"text": text, "content": text}, timeout=10).raise_for_status()
+        except httpx.HTTPError as e:  # an undeliverable alert is a broken monitor: fail the run
+            print(json.dumps({"webhook_error": type(e).__name__, "alert": r["alert"]}), file=sys.stderr)
+            return 1
+    return 0
 
 
 if __name__ == "__main__":

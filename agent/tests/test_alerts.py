@@ -1,4 +1,5 @@
 """Alert evaluator (ALERTS.md). Each test names the failure mode it guards against."""
+import json
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -45,3 +46,26 @@ def test_fetch_paginates_and_ignores_unfinished_span_versions():
     with httpx.Client(base_url="http://lf.test", transport=httpx.MockTransport(handler)) as client:
         got = alerts.fetch(client, "message", end - timedelta(minutes=15), end)
     assert sorted(o["id"] for o in got) == ["a", "b"] and all(o["latency"] for o in got)
+
+
+def test_firing_alert_exits_zero_and_logs_result(monkeypatch, capsys):
+    """Guards: a firing alert exiting non-zero, which Railway shows as a crashed cron run (seen live 2026-09-17)."""
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    monkeypatch.delenv("ALERT_WEBHOOK_URL", raising=False)
+    monkeypatch.setattr(alerts.sys, "argv", ["alerts.py"])
+    counts = {"metric.error": 22, "metric.fhir_call": 140, "metric.tool_failure": 0}
+    monkeypatch.setattr(alerts, "fetch", lambda client, name, start, end: (
+        [span(2.0)] * 22 if name == "message" else [] if name == "schedule_scan" else [{}] * counts[name]))
+    assert alerts.main() == 0
+    out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert out["alert"] is True and [r["alert"] for r in out["results"] if r["firing"]] == ["A2_error_rate"]
+
+
+def test_fetch_waits_out_rate_limit():
+    """Guards: one Langfuse 429 crashing the evaluator run."""
+    responses = [httpx.Response(429, headers={"retry-after": "0"}),
+                 httpx.Response(200, json={"data": [{"id": "a", "type": "SPAN", "latency": 1.0}], "meta": {}})]
+    end = datetime.now(timezone.utc)
+    with httpx.Client(base_url="http://lf.test", transport=httpx.MockTransport(lambda request: responses.pop(0))) as client:
+        assert [o["id"] for o in alerts.fetch(client, "message", end - timedelta(minutes=15), end)] == ["a"]
