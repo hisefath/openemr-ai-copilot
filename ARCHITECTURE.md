@@ -251,10 +251,10 @@ Two tiers, one case format.
 
 | Service | Source | Notes |
 |---|---|---|
-| OpenEMR | `openemr/openemr:8.5.0` **pinned by digest** (OPS-4) | `sites/` on a volume; start command waits for config instead of reinstalling (OPS-1); 1 GB memory ceiling (OPS-3) |
+| OpenEMR | `openemr/openemr:8.5.0` tag (pinning by digest is still open, OPS-4) | `sites/` on a volume; start command waits for config instead of reinstalling (OPS-1); 1 GB memory ceiling (OPS-3) |
 | MySQL | Railway MySQL 9.4 | CA-verified TLS, `REQUIRE SSL`; also hosts `copilot_audit` |
 | Agent | `agent/Dockerfile` | uvicorn without access logs; in-memory sessions (single replica) |
-| Alerts | Railway cron | Every 5 min |
+| Alerts | Railway cron service `alerts` (agent image, `python alerts.py`) | Every 5 min; reads Langfuse with a 10-min ingestion offset |
 
 Local development mirrors this: [deploy/local](deploy/local) (same image, MySQL 9.4 with verified TLS, Synthea import).
 

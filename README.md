@@ -20,6 +20,9 @@ A SMART on FHIR app that gives a primary care physician a **verified, cited brie
 | [KEY_METRICS.md](KEY_METRICS.md) | The six numbers that show the product works, and why |
 | [ALERTS.md](ALERTS.md) | Three alerts and their on-call responses |
 | [LOAD_TEST.md](LOAD_TEST.md) | Load test scenarios and baselines (scripted; results pending) |
+| [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md) | Measured development spend, cost per question, and monthly projections at 100 / 1K / 10K / 100K users with the architecture changes each tier needs |
+| [evals/](evals/) | 32 live eval cases (boundary, safety, adversarial, conversation, schedule) and their [latest results](evals/results/) |
+| [api-collection/](api-collection/) | Bruno collection for the agent API: OAuth2 + PKCE, sessions, questions, schedule scan, with assertions |
 
 ### Architecture at a glance
 
@@ -77,6 +80,17 @@ docker run --rm -v "$PWD":/app agentforge-agent-dev python -m pytest -q
 ```
 
 Offline tests run against **real OpenEMR FHIR output** for synthetic patients ([`agent/tests/fixtures`](agent/tests/fixtures)); every test names the failure mode it guards against.
+
+Live evals (real Claude, local stack, synthetic patients; about $0.08 per full run):
+
+```bash
+python evals/run_evals.py            # all 32 cases, writes evals/results/<timestamp>.json
+python evals/fault_injection.py A2   # fires one ALERTS.md alert on purpose, then evaluates it
+```
+
+Alerts: `agent/alerts.py` evaluates the three [ALERTS.md](ALERTS.md) alerts from Langfuse (`python alerts.py`, or `python alerts.py <from> <to>` to replay a window).
+
+Dashboard: `deploy/langfuse_dashboard.py` creates the Langfuse dashboard (requests, errors, p50/p95 latency, tool calls, retries, verification outcomes, cost, tokens) through Langfuse's API; re-running it only adds what's missing.
 
 ---
 

@@ -4,15 +4,17 @@ Three alerts sit on top of the Langfuse dashboard ([KEY_METRICS.md](KEY_METRICS.
 
 ## How alerts are evaluated
 
-- **Evaluator:** `agent/alerts.py`, run every 5 minutes by a Railway cron service. It reads the last 15 minutes of traces from the Langfuse public API.
+- **Evaluator:** [`agent/alerts.py`](agent/alerts.py), deployed as the Railway cron service `alerts` (same image as the agent, start command `python alerts.py`, schedule `*/5 * * * *`, never restarted). It reads Langfuse's public observations API (v2; the legacy traces API is closed to new Langfuse organizations).
+- **Window:** the 15 minutes ending **10 minutes ago**. Langfuse Cloud took 1 to 8 minutes to make new spans queryable in our measurements, so a window ending "now" undercounts. The cost is detection delay: an incident pages 10 to 25 minutes after it starts. Faster paging needs metrics pushed to a real-time backend (OTel/Prometheus), not a trace store.
 - **Minimum volume:** an alert only evaluates when there are **≥ 20 requests** in the window. Below that, one slow request would page someone at 3 AM for nothing.
-- **Notification:** a POST to `ALERT_WEBHOOK_URL` (Slack or Discord incoming webhook). If unset, the alert is written to the agent logs as a JSON line with `"alert": true`, which Railway log search can find.
-- **De-duplication:** an alert that is already firing re-notifies at most every 30 minutes, and sends one "resolved" message when it clears.
-- **No PHI:** alert payloads contain only metric values, thresholds, window, and a link to the Langfuse dashboard filtered by time.
+- **Notification:** a POST to `ALERT_WEBHOOK_URL` (Slack or Discord incoming webhook) when set. Every run also prints one JSON line (`"alert": true|false`, values, thresholds, window) and exits 1 when an alert fires, so the run shows as failed in Railway's cron history and log search finds it. No webhook is configured for this project yet (there is no team channel), so Railway is where alerts show up.
+- **No de-duplication yet:** a firing alert notifies on every 5-minute run until its window drops below threshold. Add a last-notified record when that gets noisy.
+- **No PHI:** payloads contain only metric values, thresholds, request counts and the window.
+- **Replay:** `python alerts.py <from> <to>` evaluates any past window (ISO timestamps), for postmortems and for the tests below.
 
 Definitions used below (same as ARCHITECTURE §7):
 - **Request** = one `POST /api/session/messages` or `POST /api/schedule/scan`.
-- **Error** = HTTP 5xx, or a fallback answer caused by the LLM (timeout, 429, refusal, truncation), an unparseable plan, or a verifier exception. A 4xx caused by the caller (bad input, expired session) is not an error.
+- **Error** = HTTP 5xx, or a fallback answer caused by the LLM (timeout, 429, refusal, truncation), an unparseable plan, or a verifier exception. A 4xx caused by the caller (bad input, expired session) is not an error. The agent emits one `metric.error` Langfuse event per error, with a `kind`; the evaluator counts those events (capped at one per request).
 - **Tool failure** = any FHIR call (prefetch or tool) that ended `error` or `timeout`. `forbidden` (403, role can't view) is reported separately and does not count, because it's working as designed.
 
 ---
@@ -42,9 +44,9 @@ Definitions used below (same as ARCHITECTURE §7):
 | **What it usually means** | Claude API problems (auth, rate limit, outage), an unparseable-plan spike after a model or prompt change, or the audit database refusing writes (requests fail closed, FM-15) |
 
 **On-call response:**
-1. In Langfuse, group the window's errors by `error_kind` span metadata (`llm_timeout`, `llm_429`, `llm_refusal`, `plan_unparseable`, `verifier_exception`, `audit_unavailable`, `http_5xx`).
+1. In Langfuse, group the window's `metric.error` events by `kind`: `llm_deadline`, `llm_timeout`, `llm_rate_limited`, `llm_api_error`, `llm_connection_error`, `llm_refusal`/`llm_max_tokens` (stop reasons), `llm_unparseable`, `verifier_exception`, `audit_unavailable`, `oauth_unavailable`, `schedule_unavailable`, `http_5xx`.
 2. `llm_*`: check the Anthropic console for key validity, credit balance (prepaid cap), and rate limits. **A drained prepaid balance looks exactly like this alert.**
-3. `plan_unparseable` or `verifier_exception` right after a deploy: **roll back** the agent to the previous Railway deployment, then investigate with the eval suite.
+3. `llm_unparseable` or `verifier_exception` right after a deploy: **roll back** the agent to the previous Railway deployment, then investigate with the eval suite.
 4. `audit_unavailable`: check MySQL health and the `copilot_audit` user's TLS connection. Answers are deliberately blocked while audit writes fail; don't bypass that.
 5. **Escalate** if the cause is not identified in 15 minutes.
 
@@ -67,10 +69,12 @@ Definitions used below (same as ARCHITECTURE §7):
 
 ## Testing the alerts
 
-Each alert is fired once on purpose to prove the pipeline works end to end, and the result is recorded here:
+Each alert was fired once on purpose with [`evals/fault_injection.py`](evals/fault_injection.py) on 2026-09-17. The script starts a second local agent (port 8001) with one fault injected, asks 22 questions over 4 sessions as the demo physician, then runs `alerts.py` over exactly that window once Langfuse has ingested every request. Synthetic data only.
 
-| Alert | Fault injected | Fired? | Notes |
+| Alert | Fault injected | Fired? | Result (22 requests each) |
 |---|---|---|---|
-| A1 | Temporarily set `QUESTION_DEADLINE_S=15` and add latency to the local OpenEMR container | _pending_ | |
-| A2 | Invalid `ANTHROPIC_API_KEY` in a local run | _pending_ | |
-| A3 | Stop the local OpenEMR container during a scripted run | _pending_ | |
+| A1 | Claude calls routed through a proxy that adds 9 s (question deadline raised to 15 s) | **Yes** | p95 **14.6 s**. A2 also fired (13.6 %): 3 answers hit the 15 s deadline and fell back. That is what a slow Claude really looks like: latency first, then timeouts. A3 stayed quiet. |
+| A2 | Invalid `ANTHROPIC_API_KEY` | **Yes** | Error rate **100 %** (`llm_api_error`), answers in 0.1 s as non-AI fallbacks. A1 and A3 stayed quiet. |
+| A3 | `OPENEMR_FHIR_BASE` pointed at a path OpenEMR doesn't serve (OAuth still works) | **Yes** | Tool failure rate **100 %**: every FHIR call returned an error. Answers still arrived in about 1 s as fallbacks that named each unavailable resource; A2 stayed quiet (0 %) because missing data isn't an LLM, verifier or server error, and A1 stayed quiet (p95 1.8 s). |
+
+**Deployed evaluator:** the Railway cron's first run (13:57 UTC) read the window 13:32–13:47, which held these local test requests, and logged `alert=true` with A1 (p95 11.1 s) and A2 (87 %) firing. Local and deployed agents currently report to the same Langfuse project; in production, set `LANGFUSE_TRACING_ENVIRONMENT` per deployment and filter the evaluator by environment.

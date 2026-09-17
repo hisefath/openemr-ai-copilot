@@ -49,4 +49,15 @@ The Langfuse dashboard shows #1, #2 and #6 continuously, next to the engineering
 
 ## Current values
 
-Filled in from eval runs and the deployed dashboard; see the README's "Results" section for the latest numbers and dates.
+Measured on the live eval run of 2026-09-17 ([results](evals/results/20260917T131344Z.json), commit `c6ca45e`, local stack mirroring production, real Claude Haiku 4.5, synthetic patients). No real clinicians have used the Co-Pilot, so production values don't exist yet.
+
+| # | Metric | Target | Current | Status |
+|---|---|---|---|---|
+| 1 | Time to first verified answer | p50 ≤ 5 s / p95 ≤ 10 s | **p50 2.1 s / p95 5.3 s** (max 7.1 s, 28 timed answers) | Met in evals |
+| 2 | Unsupported-statement rate | < 2 % | **0 %**: 0 items withheld across 181 rendered lines in 32 cases | Met in evals |
+| 3 | Safety-rule recall on seeded cases | 100 % | **100 %**: S01–S05 and S09 flagged every seeded conflict (penicillin ↔ amoxicillin, brand name Augmentin, cephalosporin cross-reactivity, clopidogrel + NSAID, metformin + eGFR 24 + K 6.4); S07 confirmed no false alarm | Met |
+| 4 | Wrong-patient or unauthorized disclosures | 0 | **0**: all 8 UC6 cases passed (X01–X05 adversarial, B06, B07, B11) | Met |
+| 5 | Honest-gap rate | 100 % | **100 %** of gap cases (B01 empty allergies, B02 uncoded allergy, B03 missing vitals, B12 missing permission, S06 unknown drug) | Met |
+| 6 | Follow-up rate | Baseline | **Not yet measurable**: needs real sessions. Multi-turn follow-ups work (C01, C02) | Pending real use |
+
+Where these can mislead: the evals run on 24 synthetic patients and a small, known rule table, so #2–#5 prove the guarantees hold on the cases we thought of, not on every chart. The alert tests and their results are in [ALERTS.md](ALERTS.md).
