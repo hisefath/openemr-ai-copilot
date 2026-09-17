@@ -634,3 +634,11 @@ Preserve existing authors/copyrights when editing files.
 - `API_README.md` - REST API docs
 - `FHIR_README.md` - FHIR implementation
 - `tests/Tests/README.md` - Testing guide
+
+## Project Rules (AgentForge Clinical Co-Pilot)
+
+- Never delete anything.
+- Ask before modifying any existing file, running `git push`, or deploying.
+- Explain each command before running it.
+- Never commit secrets; keep keys in `.env` (gitignored).
+- Demo data only — no real patient data.
