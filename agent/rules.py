@@ -7,16 +7,7 @@ ranges or abnormal flags (AUDIT DQ-7), so critical-value thresholds are defined 
 import re
 from typing import Iterable, List, Optional
 
-from pydantic import BaseModel
-
-from schemas import AllergyRecord, LabRecord, MedicationRecord
-
-
-class Flag(BaseModel):
-    rule_id: str
-    severity: str  # "high" = do not proceed without review; "medium" = review
-    message: str
-    source_ids: List[str]
+from schemas import AllergyRecord, Flag, LabRecord, MedicationRecord
 
 
 # Drug classes by lowercase name fragments (generic names; brand names where common in primary care).
