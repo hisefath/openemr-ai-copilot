@@ -246,6 +246,7 @@ class MessageResponse(BaseModel):
 class SessionCreateRequest(BaseModel):
     access_token: str = Field(min_length=10, max_length=8192)
     patient_id: Optional[str] = Field(None, pattern=r"^[0-9a-fA-F-]{36}$")
+    kind: Literal["patient", "schedule"] = "patient"  # schedule: user-bound session for the UC5 scan (evals, load tests)
 
 
 class SessionCreateResponse(BaseModel):

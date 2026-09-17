@@ -51,6 +51,9 @@ def _allergy_classes(a: AllergyRecord) -> List[str]:
     return sorted(set(found))
 
 
+allergy_classes = _allergy_classes  # public name (render.py marks unclassified allergies)
+
+
 def _active(meds: Iterable[MedicationRecord]) -> List[MedicationRecord]:
     return [m for m in meds if m.name and ("active" in m.statuses or m.status == "active")]
 
@@ -132,3 +135,18 @@ def _dedupe(flags: List[Flag]) -> List[Flag]:
             seen.add(key)
             out.append(f)
     return out
+
+
+def drugs_in_text(text: str) -> tuple[list[str], list[str]]:
+    """(dictionary drug names found in free text, drug-like words the dictionary doesn't know).
+    Unknown words are found by common generic-name suffixes and the cef-/ceph- prefix, and must render as
+    'not in rule set, not checked' (ARCHITECTURE §5 step 4). Misspellings and unlisted brands are missed; the verifier
+    says so with a fixed line."""
+    t = (text or "").lower()
+    matched = [f for fragments in CLASSES.values() for f in fragments if f in t]  # same matching as classes_of
+    suffix = re.compile(r"(cillin|cycline|mycin|floxacin|azole|pril|sartan|olol|dipine|statin|prazole|tidine|gliptin|"
+                        r"gliflozin|glutide|parin|xaban|gatran|grel|profen|coxib|azepam|azolam|oxetine|pramine|triptan|"
+                        r"sone|olone|semide|thiazide|mab|nib|vir)$")
+    unknown = [w for w in re.findall(r"[a-z]{6,}", t)
+               if (suffix.search(w) or w.startswith(("cef", "ceph"))) and not classes_of(w)]
+    return list(dict.fromkeys(matched)), list(dict.fromkeys(unknown))

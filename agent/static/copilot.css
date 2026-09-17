@@ -1,0 +1,124 @@
+/* Clinical Co-Pilot panel and schedule scan. No inline styles: CSP default-src 'self' (ARCHITECTURE §1). */
+:root {
+    --bg: #ffffff;
+    --fg: #1b1b1b;
+    --muted: #4f4f4f;
+    --border: #c4c4c4;
+    --surface: #f5f6f8;
+    --accent: #0b5cad;
+    --accent-fg: #ffffff;
+    --chip: #e8ecf2;
+    --high-bg: #fde8e6;
+    --high-fg: #7d1810;
+    --high-edge: #b3261e;
+    --med-bg: #fff3dc;
+    --med-fg: #5c3a00;
+    --med-edge: #b26a00;
+    --ok: #1d6a32;
+    --focus: #1a73e8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+main { max-width: 60rem; margin: 0 auto; padding: 0.75rem; }
+h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+h2 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+h3 { font-size: 0.8rem; margin: 0.75rem 0 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Patient banner: sticky so identity stays visible while scrolling (ARCHITECTURE §2 patient identity). */
+.banner {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface); border-bottom: 2px solid var(--border);
+    padding: 0.5rem 0.75rem;
+}
+.banner-name { font-weight: 700; font-size: 1.05rem; }
+.banner-meta { color: var(--fg); overflow-wrap: anywhere; }
+.banner-meta span + span::before { content: " · "; color: var(--muted); }
+.asof { color: var(--muted); font-size: 0.85rem; }
+
+button {
+    font: inherit; cursor: pointer; border-radius: 6px;
+    border: 1px solid var(--accent); background: var(--bg); color: var(--accent);
+    padding: 0.4rem 0.75rem; min-height: 2.25rem;
+}
+button.primary { background: var(--accent); color: var(--accent-fg); }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+.ask label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+.ask-row { display: flex; gap: 0.5rem; }
+.ask-row input {
+    flex: 1; min-width: 0; font: inherit; padding: 0.4rem 0.5rem;
+    border: 1px solid var(--muted); border-radius: 6px; color: var(--fg); background: var(--bg);
+}
+.quick { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+
+.status { color: var(--muted); min-height: 1.4em; margin: 0.5rem 0; }
+.alert {
+    border: 2px solid var(--high-edge); background: var(--high-bg); color: var(--high-fg);
+    border-radius: 6px; padding: 0.5rem 0.75rem; font-weight: 600; margin: 0.5rem 0;
+}
+.cid { color: var(--muted); font-size: 0.75rem; overflow-wrap: anywhere; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.25rem 0; }
+.chip {
+    display: inline-block; background: var(--chip); color: var(--fg);
+    border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.78rem; white-space: nowrap;
+}
+.load-ok, .load-empty { color: var(--ok); }
+.load-pending { color: var(--muted); }
+.load-forbidden, .load-expired, .load-error, .load-timeout { background: var(--med-bg); color: var(--med-fg); }
+
+.flag {
+    border-left: 5px solid var(--med-edge); background: var(--med-bg); color: var(--med-fg);
+    border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.3rem 0;
+}
+.flag-high {
+    border-left-color: var(--high-edge); background: var(--high-bg); color: var(--high-fg);
+    border-top: 1px solid var(--high-edge); border-right: 1px solid var(--high-edge); border-bottom: 1px solid var(--high-edge);
+}
+.flag-sev { font-weight: 700; text-transform: uppercase; font-size: 0.78rem; margin-right: 0.4rem; }
+.flag-high .flag-sev { font-size: 0.85rem; }
+
+.card {
+    border: 1px solid var(--border); border-radius: 8px;
+    margin: 0.75rem 0; padding: 0.6rem 0.75rem; background: var(--bg);
+}
+.card .banner { position: static; margin: -0.6rem -0.75rem 0.5rem; border-radius: 8px 8px 0 0; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem; align-items: baseline; }
+.question { font-weight: 600; margin: 0.25rem 0; overflow-wrap: anywhere; }
+.badge { border-radius: 4px; padding: 0.05rem 0.45rem; font-size: 0.78rem; font-weight: 700; border: 1px solid currentColor; }
+.outcome-pass, .outcome-pass_with_removals { color: var(--ok); }
+.outcome-fail, .outcome-refused { color: var(--high-fg); }
+.outcome-clarify { color: var(--med-fg); }
+.notice { background: var(--surface); border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.4rem 0; }
+.line { padding: 0.25rem 0; border-top: 1px solid var(--surface); overflow-wrap: anywhere; }
+.old { background: var(--med-bg); color: var(--med-fg); border-radius: 4px; padding: 0 0.35rem; font-size: 0.75rem; margin-left: 0.3rem; white-space: nowrap; }
+.coverage { color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem; }
+.withheld { font-size: 0.85rem; margin: 0.4rem 0 0.1rem; }
+.clarify { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0; }
+.clarify button { text-align: left; }
+
+.counts { font-weight: 700; }
+
+@media (max-width: 30rem) {
+    body { font-size: 14px; }
+    .ask-row { flex-direction: column; }
+    .quick button { flex: 1 1 100%; }
+}

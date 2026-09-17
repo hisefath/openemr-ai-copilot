@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<!--COPILOT_SESSION_META-->
+<title>Clinical Co-Pilot</title>
+<link rel="stylesheet" href="/static/copilot.css">
+<script src="/static/panel.js" defer></script>
+</head>
+<body>
+<header class="banner" aria-label="Patient">
+    <div class="banner-name" id="banner-name">Loading patient…</div>
+    <div class="banner-meta" id="banner-meta"></div>
+    <div class="asof" id="data-as-of"></div>
+</header>
+<main>
+    <div class="alert" id="fatal" role="alert" hidden></div>
+
+    <h2 class="visually-hidden">Data status</h2>
+    <ul class="chips" id="load-statuses"></ul>
+    <p class="status" id="load-note" hidden></p>
+
+    <section id="flags-section" aria-labelledby="flags-heading" hidden>
+        <h2 id="flags-heading">Rule flags</h2>
+        <ul id="flags"></ul>
+    </section>
+
+    <form class="ask" id="ask" method="post" autocomplete="off">
+        <fieldset id="ask-controls" disabled>
+            <label for="question">Ask about this patient</label>
+            <div class="ask-row">
+                <input id="question" name="question" type="text" maxlength="2000" required>
+                <button class="primary" type="submit">Ask</button>
+            </div>
+            <div class="quick">
+                <button type="button" data-question="Brief me on this patient.">Brief me</button>
+                <button type="button" data-question="Any allergies or interactions I should know about?">Allergies &amp; interactions</button>
+                <button type="button" data-question="What changed since the last visit?">What changed since last visit</button>
+            </div>
+        </fieldset>
+    </form>
+
+    <p class="status" id="busy" role="status" aria-live="polite"></p>
+    <div id="answers"></div>
+</main>
+</body>
+</html>
