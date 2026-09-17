@@ -1,0 +1,18 @@
+[
+  {"id": "C01", "use_case": "UC4", "category": "regression", "patient": "E2", "user": "dr_chen",
+   "failure_mode_guarded": "A trend limited to the 18-month prefetch (found live: 2 of 4 creatinine values).",
+   "turns": [{"question": "Show me the trend on creatinine.", "expect": {"text_contains": ["1.1", "1.3", "1.6", "2.1"]}}]},
+  {"id": "C02", "use_case": "UC4", "category": "regression", "patient": "E2", "user": "dr_chen",
+   "failure_mode_guarded": "A follow-up ('that value') not resolved from conversation history (found live before history was passed separately).",
+   "turns": [{"question": "Show me the trend on creatinine.", "expect": {}},
+             {"question": "What was that value a year ago?", "expect": {"outcome_in": ["pass", "clarify"], "text_or_clarify_contains": ["Creatinine"]}}]},
+  {"id": "C03", "use_case": "UC4", "category": "boundary", "patient": "E2", "user": "dr_chen",
+   "failure_mode_guarded": "Guessing the referent of an ambiguous first question instead of asking.",
+   "turns": [{"question": "Is that one still active?", "expect": {"outcome_in": ["clarify", "fail", "pass"], "no_invented_values": true}}]},
+  {"id": "C04", "use_case": "UC3", "category": "boundary", "patient": "E2", "user": "dr_chen",
+   "failure_mode_guarded": "'What changed' answered with 'started'/'stopped' dates OpenEMR FHIR doesn't expose.",
+   "turns": [{"question": "What changed since her last visit?", "expect": {"text_excludes": ["started on", "stopped on"]}}]},
+  {"id": "C05", "use_case": "UC1", "category": "invariant", "patient": "E2", "user": "dr_chen",
+   "failure_mode_guarded": "A brief slower than the 10 s p95 budget or missing the critical flags.",
+   "turns": [{"question": "Brief me on this patient.", "expect": {"max_latency_s": 10, "flags_include": ["critical-lab"]}}]}
+]

@@ -1,0 +1,45 @@
+name: Clinical Co-Pilot agent tests
+
+on:
+  push:
+    paths: ["agent/**", "evals/**", ".github/workflows/copilot-agent-tests.yml"]
+  pull_request:
+    paths: ["agent/**", "evals/**", ".github/workflows/copilot-agent-tests.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: Offline tests (no network, no LLM)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: agent/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: pytest
+        env:
+          ANTHROPIC_API_KEY: dummy
+          LANGFUSE_TRACING_ENABLED: "false"
+          LLM_WARMUP: "false"
+        run: python -m pytest -q -p no:cacheprovider tests
+      - name: Eval cases are well-formed
+        working-directory: .
+        run: |
+          python - <<'PY'
+          import glob, json
+          cases = [c for f in sorted(glob.glob("evals/cases/*.json")) for c in json.load(open(f))]
+          ids = [c["id"] for c in cases]
+          assert len(ids) == len(set(ids)), "duplicate case ids"
+          for c in cases:
+              assert c["category"] in {"boundary", "invariant", "regression", "adversarial"}, c["id"]
+              assert c.get("failure_mode_guarded"), f"{c['id']} must name the failure mode it guards against"
+          print(f"{len(cases)} eval cases OK")
+          PY

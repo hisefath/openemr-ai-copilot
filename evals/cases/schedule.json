@@ -1,0 +1,5 @@
+[
+  {"id": "U01", "use_case": "UC5", "category": "invariant", "user": "dr_chen", "session_kind": "schedule",
+   "failure_mode_guarded": "Schedule scan skipping appointments (FHIR 'proposed' status bug found in design), counting cancelled or no-show visits, or missing flagged patients.",
+   "scan_expect": {"scheduled": 8, "failed": 0, "flagged_min": 3, "max_latency_s": 60}}
+]
