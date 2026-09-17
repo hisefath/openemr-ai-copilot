@@ -1,3 +1,85 @@
+# Clinical Co-Pilot for OpenEMR (Gauntlet AgentForge)
+
+A SMART on FHIR app that gives a primary care physician a **verified, cited briefing on the patient in front of them**, opened from inside the OpenEMR chart, in the ~90 seconds between rooms. Claude selects what matters; the server writes every sentence from the patient's own records and checks it against deterministic clinical rules before the physician sees it.
+
+> This repository is a fork of OpenEMR ([Gauntlet-HQ/openemr-base-clean](https://github.com/Gauntlet-HQ/openemr-base-clean)). The Co-Pilot lives in [`agent/`](agent/) and [`deploy/`](deploy/); everything below the OpenEMR heading is upstream's README. **Demo and synthetic data only.**
+
+| | |
+|---|---|
+| **OpenEMR (deployed)** | https://openemr-production-8676.up.railway.app |
+| **Co-Pilot agent (deployed)** | https://agent-production-e0ed.up.railway.app ([`/health`](https://agent-production-e0ed.up.railway.app/health), [`/ready`](https://agent-production-e0ed.up.railway.app/ready)) |
+| **Demo users** | Physician, clinician and front-office accounts with synthetic patients. Credentials are provided with the submission, not stored in this repository. |
+
+### Documents
+
+| Document | What's in it |
+|---|---|
+| [USERS.md](USERS.md) ([USER.md](USER.md)) | The target user (PCP with a 20-patient day), her workflow, six use cases and why an agent is the right shape for each |
+| [AUDIT.md](AUDIT.md) | Security, performance, architecture, data quality and compliance audit: 71 verified findings plus what we found operating the deployment |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | The design, its trust boundaries, verification strategy, failure modes, API contract and tradeoffs |
+| [KEY_METRICS.md](KEY_METRICS.md) | The six numbers that show the product works, and why |
+| [ALERTS.md](ALERTS.md) | Three alerts and their on-call responses |
+| [LOAD_TEST.md](LOAD_TEST.md) | Load test scenarios and baselines (scripted; results pending) |
+
+### Architecture at a glance
+
+```mermaid
+flowchart LR
+  OE[OpenEMR chart] -- SMART EHR launch --> UI[Co-Pilot panel]
+  UI -- question --> AG[Agent: FastAPI]
+  AG -- FHIR R4, physician's token --> EMR[OpenEMR]
+  AG -- normalized records for one patient --> CL[Claude Haiku 4.5]
+  CL -- which records matter --> AG
+  AG -- verify + rules, server-written sentences --> UI
+  AG -- timings, counts, no PHI --> LF[Langfuse]
+```
+
+1. The physician launches the Co-Pilot from the patient card; OpenEMR's OAuth confirms who she is and which patient is open. The agent binds the session to that patient **on the server**.
+2. The agent prefetches allergies, medications, problems, recent labs, vitals and encounters in parallel, and **normalizes** OpenEMR's data defects (duplicate medications, placeholder lab values, mislabeled units).
+3. For each question, Claude returns a plan: which cited records matter, trends to show, drugs being asked about, or a clarifying question. **It writes no clinical text.**
+4. The server verifies every record id belongs to this patient, runs the clinical rules (allergy ↔ drug class, bleeding risk, critical labs, metformin with low eGFR…), renders each sentence from the record with its date, and says plainly what is missing or unavailable.
+
+### Run it locally
+
+Requirements: Docker (Docker Desktop, or `brew install colima docker docker-compose` then `colima start --cpu 4 --memory 6`), and Java 17 only if you want to generate new synthetic patients.
+
+```bash
+cd deploy/local
+./make-certs.sh                                   # local CA + MySQL server cert (verified TLS, like production)
+docker-compose -f compose.yml up -d mysql openemr # OpenEMR at http://localhost:8300 (admin / pass, local only)
+```
+
+Synthetic patients (Synthea, fixed seed so everyone gets the same patients):
+
+```bash
+java -Xmx4g -jar synthea-with-dependencies.jar -s 20260917 -cs 20260917 \
+  --exporter.fhir.export false --exporter.ccda.export true --generate.only_alive_patients true -p 25
+./import-synthea.sh /path/to/synthea/output/ccda  # OpenEMR's own CCDA importer
+```
+
+Demo users, today's schedule and edge-case patients (copy each script into the container, then run as the web user):
+
+```bash
+docker cp seed_demo.php agentforge-local-openemr-1:/tmp/ && docker exec agentforge-local-openemr-1 su-exec apache php /tmp/seed_demo.php
+docker cp seed_edge_cases.php agentforge-local-openemr-1:/tmp/ && docker exec agentforge-local-openemr-1 su-exec apache php /tmp/seed_edge_cases.php
+```
+
+`seed_demo.php` prints the demo users' generated passwords once; store them outside the repository.
+
+OpenEMR settings the Co-Pilot needs (Admin → Config, or SQL over TLS): **Enable OpenEMR Standard FHIR REST API** (`rest_fhir_api=1`), **Site Address Override** = `http://localhost:8300` (`site_addr_oath`), **API Log Option = Minimal** (`api_log_option=1`). Then register the SMART app at `POST /oauth2/default/registration` (confidential client, launch URI `http://localhost:8000/smart/launch`, redirect URI `http://localhost:8000/smart/callback`) and enable it under Admin → System → API Clients.
+
+### Tests
+
+```bash
+cd agent
+docker build -f Dockerfile.dev -t agentforge-agent-dev .
+docker run --rm -v "$PWD":/app agentforge-agent-dev python -m pytest -q
+```
+
+Offline tests run against **real OpenEMR FHIR output** for synthetic patients ([`agent/tests/fixtures`](agent/tests/fixtures)); every test names the failure mode it guards against.
+
+---
+
 [![Syntax Status](https://github.com/openemr/openemr/actions/workflows/syntax.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/syntax.yml)
 [![Styling Status](https://github.com/openemr/openemr/actions/workflows/styling.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/styling.yml)
 [![Testing Status](https://github.com/openemr/openemr/actions/workflows/test.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/test.yml)
