@@ -95,8 +95,12 @@ def medications(bundle: dict, today: Optional[date] = None) -> List[MedicationRe
         stale = status == "active" and bool(authored) and int(authored[:4]) <= today.year - STALE_ACTIVE_YEARS
         rec = MedicationRecord(source_ids=[_sid(m)], date=authored, name=_label(cc), rxnorm=_code(cc), status=status,
                                dosage=dosage or None, statuses=[status] if status else [], possibly_stale=stale)
-        if rec.rxnorm and rec.rxnorm in by_code:  # same drug twice as orders
-            _merge(by_code[rec.rxnorm], m)
+        if rec.rxnorm and rec.rxnorm in by_code:  # same drug ordered more than once
+            existing = by_code[rec.rxnorm]
+            _merge(existing, m)
+            if (authored or "") > (existing.date or ""):  # the most recent order describes the drug now
+                existing.date, existing.status, existing.possibly_stale = authored, status, stale
+                existing.dosage = rec.dosage or existing.dosage
             continue
         if rec.rxnorm:
             by_code[rec.rxnorm] = rec

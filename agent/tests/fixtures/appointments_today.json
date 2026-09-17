@@ -1,0 +1,788 @@
+{
+    "_about": "Real OpenEMR 8.5.0 FHIR Appointment output for seeded synthetic demo appointments (deploy/local/seed_demo.php), captured 2026-09-17. Physician Practitioner uuid is dr_chen.",
+    "resourceType": "Bundle",
+    "type": "searchset",
+    "total": 10,
+    "entry": [
+        {
+            "resource": {
+                "id": "a2c41ae9-27e4-414e-8eef-3a3282489ce2",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "proposed",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T08:30:00+00:00",
+                "end": "2026-09-17T08:45:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40eca-61ca-4d75-bbee-35756d77a9eb",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-29ce-436a-b52a-401387be71ed",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "arrived",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T08:50:00+00:00",
+                "end": "2026-09-17T09:05:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ed1-1928-4a17-89fa-bd15efedd0f4",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-2b6c-481b-8eec-ed5c1b8c7ec1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "booked",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T09:10:00+00:00",
+                "end": "2026-09-17T09:25:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ed4-0a26-47a5-a11c-0b0df00c9ddd",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-2d35-49c2-961c-c6f2fdf871f1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "proposed",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T09:30:00+00:00",
+                "end": "2026-09-17T09:45:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ed8-b5fd-405d-9fca-7d6de199df53",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-2ee2-4e2a-bb46-70c4ee4a079f",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "pending",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T09:50:00+00:00",
+                "end": "2026-09-17T10:05:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40edd-9c82-460a-8151-0892e7741f38",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-352a-4879-8fc4-93e86928d20f",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "proposed",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T10:10:00+00:00",
+                "end": "2026-09-17T10:25:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ee0-668c-4c9c-a28e-6c7dfd1c8cc7",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-36e5-4439-8408-3dc4449bea26",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "cancelled",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T10:30:00+00:00",
+                "end": "2026-09-17T10:45:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ee3-3f1a-46ca-9af5-a22d0108f467",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-38a7-441d-adbc-d76e2bc6bd00",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "proposed",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T10:50:00+00:00",
+                "end": "2026-09-17T11:05:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ee5-90a6-4ff1-9343-891517d65751",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-3a7e-4798-a7d2-b40c8b56f39c",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "noshow",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T11:10:00+00:00",
+                "end": "2026-09-17T11:25:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ee8-76c4-4520-a49b-ba322f30731f",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "id": "a2c41ae9-3c32-4d8d-8b15-ea31f5bea71b",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2026-09-17T07:51:27+00:00"
+                },
+                "resourceType": "Appointment",
+                "status": "booked",
+                "appointmentType": {
+                    "coding": [
+                        {
+                            "system": "http://localhost:8300",
+                            "code": "office_visit",
+                            "display": "Office Visit"
+                        }
+                    ]
+                },
+                "start": "2026-09-17T11:30:00+00:00",
+                "end": "2026-09-17T11:45:00+00:00",
+                "participant": [
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PART",
+                                        "display": "Participant"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Patient/a2c40ee9-f6cf-4d6d-901f-80e8f46ec919",
+                            "type": "Patient"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "PPRF",
+                                        "display": "Primary Performer"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Practitioner/a2c41ae8-004c-4a01-8ca5-b49c6e8d7397",
+                            "type": "Practitioner"
+                        },
+                        "status": "accepted"
+                    },
+                    {
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                                        "code": "LOC",
+                                        "display": "Location"
+                                    }
+                                ]
+                            }
+                        ],
+                        "actor": {
+                            "reference": "Location/a2c40f0d-e2e9-47f3-ab55-520b3b85542d",
+                            "type": "Location"
+                        },
+                        "status": "accepted"
+                    }
+                ]
+            }
+        }
+    ]
+}

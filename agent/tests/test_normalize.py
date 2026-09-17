@@ -120,6 +120,21 @@ def test_conflicting_statuses_for_same_drug_are_flagged_not_resolved():
     assert m.source_ids == ["MedicationRequest/o", "MedicationRequest/p"]
 
 
+def test_reordered_drug_takes_the_latest_order_date_and_staleness():
+    """Guards: a current prescription labeled 'may no longer be current' because an older order of the same
+    drug was seen first (found with a seeded clopidogrel reorder on top of a 2020 Synthea order)."""
+    rx = {"coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "309362", "display": "Clopidogrel 75 MG"}]}
+    old = {"resourceType": "MedicationRequest", "id": "old", "intent": "order", "status": "active",
+           "medicationCodeableConcept": rx, "authoredOn": "2020-03-12T00:00:00+00:00"}
+    new = {"resourceType": "MedicationRequest", "id": "new", "intent": "order", "status": "active",
+           "medicationCodeableConcept": rx, "authoredOn": "2026-06-19T00:00:00+00:00",
+           "dosageInstruction": [{"text": "1 tablet by mouth daily"}]}
+    for order in ([old, new], [new, old]):
+        [m] = n.medications({"entry": [{"resource": r} for r in order]}, TODAY)
+        assert m.date == "2026-06-19" and not m.possibly_stale and m.dosage == "1 tablet by mouth daily"
+        assert set(m.source_ids) == {"MedicationRequest/old", "MedicationRequest/new"}
+
+
 def test_malformed_bundles_do_not_crash():
     """Guards: a 200 with an odd body taking down the whole briefing."""
     for fn in (n.patient, n.allergies, n.medications, n.conditions, n.labs, n.vitals, n.encounters):
