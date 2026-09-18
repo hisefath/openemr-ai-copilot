@@ -1,50 +1,68 @@
-/* Soft Clinical skin for OpenEMR 8.5.0 — matches the Clinical Co-Pilot panel (agent/static/copilot.css).
+/* Soft Clinical (dark) skin for OpenEMR 8.5.0 — matches the Clinical Co-Pilot panel (agent/static/copilot.css).
  *
  * Loaded last on every page through custom/assets/custom.yaml, so it only ever overrides: no shipped theme file is
- * edited, and deleting this file returns the stock look. Tokens are copied from copilot.css unchanged.
+ * edited, and deleting this file returns whatever theme the css_header global names.
  *
- * Scope on purpose: the login page, the app chrome, and the Bootstrap 4.6 components the clinical screens are built
- * from (buttons, inputs, cards, tables, tabs, badges, alerts). Deliberately NOT touched, because they are px-locked
- * legacy layouts or carry data-driven colours: the calendar grid, encounter/LBF form scaffolding, report tables,
- * PDF/print stylesheets, and the SMART modal's JS-set width and height (library/dialog.js sizes it inline).
+ * It sits on top of OpenEMR's own dark theme (css_header = style_dark.css), not the light one. That matters: the dark
+ * theme already answers the thousands of legacy rules — text, borders, legacy table classes, jQuery UI widgets — so
+ * anything this file misses stays dark grey instead of flashing white. What is left here is a retint: OpenEMR's black
+ * and grey scale becomes the Co-Pilot's slate-and-teal, plus rounded corners and the system font stack.
+ *
+ * Fixed appearance on purpose: no prefers-color-scheme media query anywhere, so the EHR looks the same on every
+ * machine regardless of the OS light/dark setting.
+ *
+ * Deliberately NOT touched, because they are px-locked legacy layouts or carry data-driven colours: the calendar
+ * grid, encounter/LBF form scaffolding, report tables, the PDF/print stylesheets, and the SMART modal's JS-set
+ * width and height (library/dialog.js sizes it inline).
  */
 :root {
-    --sc-bg: #f6f9fa;
-    --sc-surface: #ffffff;
-    --sc-sunk: #f1f6f7;
-    --sc-ink: #12242c;
-    --sc-muted: #4f656f;
-    --sc-border: #e1e9ed;
-    --sc-border-strong: #768b95;   /* control edges: >= 3:1 on every surface (WCAG 1.4.11) */
-    --sc-accent: #0c6f78;
-    --sc-accent-hover: #095a62;
-    --sc-accent-soft: #e1f1f1;
+    --sc-bg: #0e1518;              /* page canvas */
+    --sc-surface: #162126;         /* cards, menus, modals */
+    --sc-sunk: #101a1e;            /* inputs, quiet blocks, striped rows */
+    --sc-ink: #e4eef0;
+    --sc-muted: #9bafb6;
+    --sc-border: #24343a;          /* separators */
+    --sc-border-strong: #5a7078;   /* control edges: >= 3:1 on every surface (WCAG 1.4.11) */
+    --sc-accent: #4fc3be;
+    --sc-accent-hover: #6fd3cf;
+    --sc-accent-ink: #06232a;      /* text ON the accent */
+    --sc-accent-soft: #123037;
+    --sc-ok: #6fd0a0;
+    --sc-danger: #ffb3a8;
+    --sc-danger-bg: #3a201d;
+    --sc-warn: #f0c67a;
+    --sc-warn-bg: #332714;
     --sc-r: 14px;
     --sc-r-sm: 10px;
-    --sc-shadow: 0 1px 2px rgba(15, 40, 50, 0.05), 0 10px 26px -18px rgba(15, 40, 50, 0.35);
+    --sc-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px -20px rgba(0, 0, 0, 0.9);
     --sc-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
-    /* Bootstrap/OpenEMR tokens the chrome reads through var() (tabs_style_full.css is entirely var-driven). */
-    --primary: #0c6f78;
-    --blue: #0c6f78;
-    --light: #f6f9fa;
-    --gray300: #e1e9ed;
-    --oe-body-bg: #f6f9fa;
-    --oe-surface-bg: #ffffff;
-    --oe-panel-bg: #ffffff;
-    --oe-search-bg: #ffffff;
-    --oe-body-color: #12242c;
-    --oe-navbar-bg: #ffffff;
-    --oe-navbar-color: #12242c;
-    --oe-navbar-link-active-color: #0c6f78;
-    --oe-navbar-link-active-bg: #e1f1f1;
-    --oe-navbar-link-hover-color: #0c6f78;
-    --oe-navbar-link-hover-bg: #f1f6f7;
-    --oe-fieldset-bg: #ffffff;
-    --oe-fieldset-color: #12242c;
+    /* Tokens the chrome reads through var() — tabs_style_full.css is entirely var-driven. */
+    --primary: #4fc3be;
+    --blue: #4fc3be;
+    --light: #162126;
+    --white: #0e1518;
+    --black: #e4eef0;
+    --gray100: #101a1e;
+    --gray200: #162126;
+    --gray300: #24343a;
+    --body-color: #e4eef0;
+    --oe-body-bg: #0e1518;
+    --oe-body-color: #e4eef0;
+    --oe-surface-bg: #162126;
+    --oe-panel-bg: #162126;
+    --oe-search-bg: #101a1e;
+    --oe-navbar-bg: #162126;
+    --oe-navbar-color: #e4eef0;
+    --oe-navbar-link-active-color: #4fc3be;
+    --oe-navbar-link-active-bg: #123037;
+    --oe-navbar-link-hover-color: #4fc3be;
+    --oe-navbar-link-hover-bg: #101a1e;
+    --oe-fieldset-bg: #162126;
+    --oe-fieldset-color: #e4eef0;
 }
 
-body {
+html, body {
     background-color: var(--sc-bg);
     color: var(--sc-ink);
     font-family: var(--sc-sans);
@@ -52,26 +70,23 @@ body {
 
 a { color: var(--sc-accent); }
 a:hover, a:focus { color: var(--sc-accent-hover); }
+hr { border-top-color: var(--sc-border); }
+legend, label, .col-form-label { color: var(--sc-ink); }
+.text-muted { color: var(--sc-muted) !important; }   /* Bootstrap ships this one !important */
 
-/* App shell. .bg-light compiles to `background-color:#fff!important`, so this one rule has to answer in kind. */
-.navbar.bg-light { background-color: var(--sc-surface) !important; border-bottom: 1px solid var(--sc-border); }
+/* App shell: both navbars (the tab bar at main.php:486 and the patient menu from PatientMenuRole). */
+.navbar, .navbar.bg-light, .bg-light { background-color: var(--sc-surface) !important; }
+.navbar { border-bottom: 1px solid var(--sc-border); }
+.navbar-light .navbar-brand, .navbar-light .navbar-text { color: var(--sc-ink); }
 .navbar-light .navbar-nav .nav-link { color: var(--sc-muted); }
 .navbar-light .navbar-nav .nav-link:focus, .navbar-light .navbar-nav .nav-link:hover { color: var(--sc-accent); }
 .navbar-light .navbar-nav .active > .nav-link, .navbar-light .navbar-nav .nav-link.active { color: var(--sc-accent); }
+.navbar-light .navbar-toggler { border-color: var(--sc-border); color: var(--sc-ink); }
 
-/* Buttons: soft corners plus the full state matrix — a base-colour-only override snaps back to Bootstrap blue on
-   :hover/:focus/:active, which is the classic half-restyled look. */
-.btn {
-    border-radius: var(--sc-r-sm);
-    font-family: var(--sc-sans);
-    font-weight: 600;
-}
-.btn:focus, .btn.focus { box-shadow: 0 0 0 0.2rem rgba(12, 111, 120, 0.25); }
-.btn-primary {
-    background-color: var(--sc-accent);
-    border-color: var(--sc-accent);
-    color: #ffffff;
-}
+/* Buttons, with the full state matrix: overriding only the base colour snaps back to Bootstrap blue on hover. */
+.btn { border-radius: var(--sc-r-sm); font-family: var(--sc-sans); font-weight: 600; }
+.btn:focus, .btn.focus { box-shadow: 0 0 0 0.2rem rgba(79, 195, 190, 0.3); }
+.btn-primary { background-color: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-accent-ink); }
 .btn-primary:hover,
 .btn-primary:focus,
 .btn-primary.focus,
@@ -80,71 +95,93 @@ a:hover, a:focus { color: var(--sc-accent-hover); }
 .show > .btn-primary.dropdown-toggle {
     background-color: var(--sc-accent-hover);
     border-color: var(--sc-accent-hover);
-    color: #ffffff;
+    color: var(--sc-accent-ink);
 }
-.btn-primary:focus, .btn-primary.focus,
-.btn-primary:not(:disabled):not(.disabled).active:focus,
-.btn-primary:not(:disabled):not(.disabled):active:focus,
-.show > .btn-primary.dropdown-toggle:focus { box-shadow: 0 0 0 0.2rem rgba(12, 111, 120, 0.35); }
-.btn-primary.disabled, .btn-primary:disabled { background-color: var(--sc-accent); border-color: var(--sc-accent); opacity: 0.5; }
-
-.btn-secondary {
+.btn-primary.disabled, .btn-primary:disabled { background-color: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-accent-ink); opacity: 0.5; }
+.btn-secondary, .btn-light, .btn-default {
     background-color: var(--sc-surface);
     border-color: var(--sc-border-strong);
     color: var(--sc-ink);
 }
-.btn-secondary:hover,
-.btn-secondary:focus,
-.btn-secondary.focus,
+.btn-secondary:hover, .btn-secondary:focus, .btn-secondary.focus,
 .btn-secondary:not(:disabled):not(.disabled).active,
 .btn-secondary:not(:disabled):not(.disabled):active,
-.show > .btn-secondary.dropdown-toggle {
-    background-color: var(--sc-sunk);
+.show > .btn-secondary.dropdown-toggle,
+.btn-light:hover, .btn-light:focus {
+    background-color: var(--sc-accent-soft);
     border-color: var(--sc-accent);
     color: var(--sc-accent);
 }
 .btn-secondary.disabled, .btn-secondary:disabled { background-color: var(--sc-surface); border-color: var(--sc-border-strong); color: var(--sc-ink); opacity: 0.5; }
+.btn-outline-primary { border-color: var(--sc-accent); color: var(--sc-accent); }
+.btn-outline-primary:hover, .btn-outline-primary:focus { background-color: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-accent-ink); }
+.btn-outline-secondary, .btn-outline-dark, .btn-outline-light { border-color: var(--sc-border-strong); color: var(--sc-ink); }
+.btn-outline-secondary:hover, .btn-outline-dark:hover, .btn-outline-light:hover { background-color: var(--sc-accent-soft); border-color: var(--sc-accent); color: var(--sc-accent); }
 .btn-link { color: var(--sc-accent); }
 .btn-link:hover, .btn-link:focus { color: var(--sc-accent-hover); }
+.close { color: var(--sc-ink); text-shadow: none; }
+.close:hover { color: var(--sc-accent); }
 
-/* Form controls: a visible edge at rest, an accent ring on focus. */
-.form-control, .custom-select, .custom-file-label {
+/* Form controls. */
+.form-control, .custom-select, .custom-file-label, textarea, select, input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="search"] {
+    background-color: var(--sc-sunk);
     border-color: var(--sc-border-strong);
     border-radius: var(--sc-r-sm);
     color: var(--sc-ink);
     font-family: var(--sc-sans);
 }
-.form-control:focus, .custom-select:focus {
+.form-control:focus, .custom-select:focus, textarea:focus, select:focus {
+    background-color: var(--sc-sunk);
     border-color: var(--sc-accent);
-    box-shadow: 0 0 0 0.2rem rgba(12, 111, 120, 0.2);
+    box-shadow: 0 0 0 0.2rem rgba(79, 195, 190, 0.25);
     color: var(--sc-ink);
 }
 .form-control::placeholder { color: var(--sc-muted); opacity: 1; }
-.input-group-text { background-color: var(--sc-sunk); border-color: var(--sc-border-strong); border-radius: var(--sc-r-sm); color: var(--sc-muted); }
+.form-control:disabled, .form-control[readonly] { background-color: var(--sc-surface); color: var(--sc-muted); }
+.input-group-text { background-color: var(--sc-surface); border-color: var(--sc-border-strong); border-radius: var(--sc-r-sm); color: var(--sc-muted); }
+.custom-control-input:checked ~ .custom-control-label::before { background-color: var(--sc-accent); border-color: var(--sc-accent); }
 
-/* Cards — the patient dashboard is built from these (demographics.php card_container_class_list). */
-.card {
+/* Surfaces: cards (the patient dashboard is built from these), modals, menus, popovers. */
+.card, .panel, .modal-content, .popover, .toast, .list-group-item, .jumbotron {
     background-color: var(--sc-surface);
-    border: 1px solid var(--sc-border);
-    border-radius: var(--sc-r);
-    box-shadow: var(--sc-shadow);
+    border-color: var(--sc-border);
+    color: var(--sc-ink);
 }
-.card-header, .card-footer { background-color: var(--sc-sunk); border-color: var(--sc-border); }
+.card, .modal-content, .popover, .toast { border-radius: var(--sc-r); box-shadow: var(--sc-shadow); }
+.card { border: 1px solid var(--sc-border); }
+.card-header, .card-footer, .modal-header, .modal-footer { background-color: var(--sc-sunk); border-color: var(--sc-border); }
 .card-header:first-child { border-radius: calc(var(--sc-r) - 1px) calc(var(--sc-r) - 1px) 0 0; }
-.card-title { color: var(--sc-ink); font-weight: 700; }
-.modal-content { border: 1px solid var(--sc-border); border-radius: var(--sc-r); }
-.modal-header, .modal-footer { border-color: var(--sc-border); }
+.card-title, .modal-title { color: var(--sc-ink); font-weight: 700; }
+.modal-backdrop.show { opacity: 0.7; }
+.dropdown-menu {
+    background-color: var(--sc-surface);
+    border-color: var(--sc-border);
+    box-shadow: var(--sc-shadow);
+    color: var(--sc-ink);
+}
+.dropdown-menu:not(.rounded-0) { border-radius: var(--sc-r-sm); }
+.dropdown-item { color: var(--sc-ink); }
+.dropdown-item:hover, .dropdown-item:focus { background-color: var(--sc-accent-soft); color: var(--sc-accent); }
+.dropdown-item:active, .dropdown-item.active { background-color: var(--sc-accent); color: var(--sc-accent-ink); }
+.dropdown-divider { border-top-color: var(--sc-border); }
+.list-group-item.active { background-color: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-accent-ink); }
 
-/* Data tables: quieter rules, tinted stripes, no change to widths or padding. */
+/* Data tables: colours only — widths and padding are left alone so legacy layouts keep their alignment. */
 .table { color: var(--sc-ink); }
 .table thead th { border-bottom: 2px solid var(--sc-border); color: var(--sc-muted); font-weight: 700; }
 .table td, .table th { border-top-color: var(--sc-border); }
 .table-bordered, .table-bordered td, .table-bordered th { border-color: var(--sc-border); }
-.table-striped tbody tr:nth-of-type(odd) { background-color: var(--sc-sunk); }
+.table-striped tbody tr:nth-of-type(odd) { background-color: var(--sc-sunk); color: var(--sc-ink); }
 .table-hover tbody tr:hover { background-color: var(--sc-accent-soft); color: var(--sc-ink); }
-.thead-light th { background-color: var(--sc-sunk); border-color: var(--sc-border); color: var(--sc-muted); }
+/* style_dark.css scopes these as `.table .thead-light th`, so match that specificity or it keeps its grey. */
+.table .thead-light th, .table .thead-dark th, .thead-light th, .thead-dark th {
+    background-color: var(--sc-sunk);
+    border-color: var(--sc-border);
+    color: var(--sc-muted);
+}
+.table-active, .table-active > td, .table-active > th { background-color: var(--sc-accent-soft); }
 
-/* Tabs, badges, alerts, dropdowns. */
+/* Tabs, pagination, badges, alerts, progress. */
 .nav-tabs { border-bottom-color: var(--sc-border); }
 .nav-tabs .nav-link { border-radius: var(--sc-r-sm) var(--sc-r-sm) 0 0; color: var(--sc-muted); }
 .nav-tabs .nav-link:hover, .nav-tabs .nav-link:focus { border-color: var(--sc-border) var(--sc-border) var(--sc-border); color: var(--sc-accent); }
@@ -154,19 +191,24 @@ a:hover, a:focus { color: var(--sc-accent-hover); }
     color: var(--sc-accent);
     font-weight: 700;
 }
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--sc-accent); color: var(--sc-accent-ink); }
+.page-link { background-color: var(--sc-surface); border-color: var(--sc-border); color: var(--sc-accent); }
+.page-item.active .page-link { background-color: var(--sc-accent); border-color: var(--sc-accent); color: var(--sc-accent-ink); }
+.page-item.disabled .page-link { background-color: var(--sc-surface); border-color: var(--sc-border); color: var(--sc-muted); }
 .badge { border-radius: 999px; font-weight: 700; padding: 0.3em 0.7em; }
-.badge-primary { background-color: var(--sc-accent); }
+.badge-primary { background-color: var(--sc-accent); color: var(--sc-accent-ink); }
+.badge-secondary { background-color: var(--sc-sunk); color: var(--sc-ink); }
 .alert { border-radius: var(--sc-r-sm); }
-.alert-primary { background-color: var(--sc-accent-soft); border-color: var(--sc-accent); color: #0a555c; }
-.dropdown-menu:not(.rounded-0) { border-color: var(--sc-border); border-radius: var(--sc-r-sm); box-shadow: var(--sc-shadow); }
-.dropdown-item:active, .dropdown-item.active { background-color: var(--sc-accent); color: #ffffff; }
-.list-group-item { border-color: var(--sc-border); }
-.list-group-item.active { background-color: var(--sc-accent); border-color: var(--sc-accent); }
-.page-item.active .page-link { background-color: var(--sc-accent); border-color: var(--sc-accent); }
-.page-link { color: var(--sc-accent); }
+.alert-primary, .alert-info { background-color: var(--sc-accent-soft); border-color: var(--sc-accent); color: var(--sc-accent); }
+.alert-success { background-color: #12301f; border-color: var(--sc-ok); color: var(--sc-ok); }
+.alert-danger { background-color: var(--sc-danger-bg); border-color: var(--sc-danger); color: var(--sc-danger); }
+.alert-warning { background-color: var(--sc-warn-bg); border-color: var(--sc-warn); color: var(--sc-warn); }
+.progress { background-color: var(--sc-sunk); }
+.progress-bar { background-color: var(--sc-accent); }
+.breadcrumb { background-color: var(--sc-sunk); border-radius: var(--sc-r-sm); }
 
-/* Login page (login/layouts/vertical_band.html.twig): the logo and form sit on one soft card on the canvas.
-   The layout has no wrapper class of its own, so this targets the band's only child. */
+/* Login page (login/layouts/vertical_band.html.twig): logo and form on one soft card. The layout has no wrapper
+   class of its own, so this targets the band's only child. */
 .vertical-band > .align-items-center, .horizontal-box > .align-items-center {
     background-color: var(--sc-surface);
     border: 1px solid var(--sc-border);

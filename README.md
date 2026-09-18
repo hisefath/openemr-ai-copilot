@@ -90,7 +90,7 @@ python evals/fault_injection.py A2   # fires one ALERTS.md alert on purpose, the
 
 Alerts: `agent/alerts.py` evaluates the three [ALERTS.md](ALERTS.md) alerts from Langfuse (`python alerts.py`, or `python alerts.py <from> <to>` to replay a window).
 
-OpenEMR itself carries the same look: [`deploy/openemr/`](deploy/openemr/) builds the deployed EHR image from a digest-pinned 8.5.0 base plus one stylesheet loaded through OpenEMR's supported `custom/assets/custom.yaml` hook. No shipped theme file is edited; deleting the overlay restores the stock theme.
+OpenEMR itself carries the same look: [`deploy/openemr/`](deploy/openemr/) builds the deployed EHR image from a digest-pinned 8.5.0 base plus one stylesheet loaded through OpenEMR's supported `custom/assets/custom.yaml` hook, on top of OpenEMR's own dark theme (`css_header = style_dark.css`). No shipped theme file is edited; deleting the overlay restores the stock theme. Both the EHR and the panel are fixed dark, independent of the clinician's OS setting.
 
 Dashboard: `deploy/langfuse_dashboard.py` creates the Langfuse dashboard (requests, errors, p50/p95 latency, tool calls, retries, verification outcomes, cost, tokens) through Langfuse's API; re-running it only adds what's missing.
 

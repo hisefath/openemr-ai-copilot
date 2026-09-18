@@ -1,37 +1,38 @@
 /* Clinical Co-Pilot panel and schedule scan. No inline styles: CSP default-src 'self' (ARCHITECTURE §1), which also
-   rules out web fonts — the system stack below is what ships. Every colour is a token so the dark palette at the end
-   is the only place that redefines them; components never hard-code a colour. */
+   rules out web fonts — the system stack below is what ships. Every colour is a token and components never hard-code
+   one, so the palette below is the single place any colour changes. Fixed dark, matching the skinned EHR this panel
+   opens inside (deploy/openemr/custom/assets/css/soft-clinical.css). */
 :root {
-    color-scheme: light dark;
+    color-scheme: dark;
 
-    --bg: #f6f9fa;          /* canvas behind the cards */
-    --surface: #ffffff;     /* cards, banner, ask box */
-    --sunk: #f1f6f7;        /* notice and coverage blocks: quieter than a card, still separated */
-    --fg: #12242c;
-    --muted: #4f656f;
-    --border: #e1e9ed;        /* separators between blocks */
-    --border-strong: #768b95;  /* edges of controls: 3.3-3.6:1 on every surface behind them */
-    --chip: #edf3f5;
-    --chip-fg: #3c525b;
-    --accent: #0c6f78;
-    --accent-fg: #ffffff;
-    --accent-hover: #095a62;
-    --accent-soft: #e1f1f1;
-    --high-bg: #fef0ee;
-    --high-fg: #8b2317;
-    --high-edge: #d2452f;
-    --med-bg: #fff6e7;
-    --med-fg: #74490a;
-    --med-edge: #c98c14;
-    --ok: #14694a;
-    --ok-bg: #e4f3eb;
-    --focus: #0c6f78;
+    --bg: #0e1518;
+    --surface: #162126;
+    --sunk: #101a1e;
+    --fg: #e4eef0;
+    --muted: #9bafb6;
+    --border: #24343a;
+    --border-strong: #5a7078;
+    --chip: #1e2c32;
+    --chip-fg: #b6c8ce;
+    --accent: #4fc3be;
+    --accent-fg: #06232a;
+    --accent-hover: #6fd3cf;
+    --accent-soft: #123037;
+    --high-bg: #3a201d;
+    --high-fg: #ffb3a8;
+    --high-edge: #e2685a;
+    --med-bg: #332714;
+    --med-fg: #f0c67a;
+    --med-edge: #c8912f;
+    --ok: #6fd0a0;
+    --ok-bg: #12301f;
+    --focus: #4fc3be;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px -20px rgba(0, 0, 0, 0.9);
 
     --r: 14px;              /* cards, banner, ask box */
     --r-sm: 10px;           /* flags, notices, inner blocks */
     --pad: 16px;
     --gap: 12px;
-    --shadow: 0 1px 2px rgba(15, 40, 50, 0.05), 0 10px 26px -18px rgba(15, 40, 50, 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -159,35 +160,9 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 
 .counts { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; scroll-margin-top: 9rem; }
 
-/* Dark palette follows the clinician's OS setting: tokens only, so every component above inherits it. */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0e1518;
-        --surface: #162126;
-        --sunk: #101a1e;
-        --fg: #e4eef0;
-        --muted: #9bafb6;
-        --border: #24343a;
-        --border-strong: #5a7078;
-        --chip: #1e2c32;
-        --chip-fg: #b6c8ce;
-        --accent: #4fc3be;
-        --accent-fg: #06232a;
-        --accent-hover: #6fd3cf;
-        --accent-soft: #123037;
-        --high-bg: #3a201d;
-        --high-fg: #ffb3a8;
-        --high-edge: #e2685a;
-        --med-bg: #332714;
-        --med-fg: #f0c67a;
-        --med-edge: #c8912f;
-        --ok: #6fd0a0;
-        --ok-bg: #12301f;
-        --focus: #4fc3be;
-        --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px -20px rgba(0, 0, 0, 0.9);
-    }
-    .flag .chip { background: rgba(255, 255, 255, 0.08); }
-}
+/* One fixed palette, no prefers-color-scheme branch: the EHR around this panel is itself fixed dark
+   (deploy/openemr), so following the OS here would put a light panel inside a dark chart. */
+.flag .chip { background: rgba(255, 255, 255, 0.08); }
 
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
