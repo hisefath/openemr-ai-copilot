@@ -11,9 +11,9 @@
  * Fixed appearance on purpose: no prefers-color-scheme media query anywhere, so the EHR looks the same on every
  * machine regardless of the OS light/dark setting.
  *
- * Deliberately NOT touched, because they are px-locked legacy layouts or carry data-driven colours: the calendar
- * grid, encounter/LBF form scaffolding, report tables, the PDF/print stylesheets, and the SMART modal's JS-set
- * width and height (library/dialog.js sizes it inline).
+ * Deliberately NOT touched: encounter/LBF form scaffolding, report tables, the PDF/print stylesheets, and the SMART
+ * modal's JS-set width and height (library/dialog.js sizes it inline). The calendar IS restyled, carefully — see the
+ * calendar section at the end, which pairs with the slot-height change in deploy/openemr/Dockerfile.
  */
 :root {
     --sc-bg: #0e1518;              /* page canvas */
@@ -220,3 +220,78 @@ legend, label, .col-form-label { color: var(--sc-ink); }
     width: 100%;
 }
 .vertical-band .lead { color: var(--sc-muted); font-size: 1.05rem; }
+
+
+/* ------------------------------------------------------------------ calendar
+ * Three things fight a skin here, so each is handled explicitly:
+ *   1. Appointment blocks carry an INLINE background-color taken from the category's pc_catcolor database column
+ *      (CalendarRenderDataBuilder -> event.displayBgColor). Only an author !important outranks an inline style.
+ *   2. The theme pins several calendar colours with !important; matching declarations here win by load order.
+ *   3. Row height is PHP-computed into each block's inline top/height. 32px below MUST equal $timeslotHeightVal in
+ *      deploy/openemr/Dockerfile, or every appointment drifts by its slot index.
+ */
+.timeslot { height: 32px; }
+
+/* The gutter's first row is a spacer that must stay exactly one slot tall (calendarDirectSelect.js maps cursor Y to a
+   row index), and the provider header opposite it is content-sized, so pin it to the same height or the columns
+   start at different offsets and every block sits off its label. */
+#bigCal td.timeslot.providerXbtn { background-color: var(--sc-sunk); height: 32px; }
+.providerheader {
+    background-color: var(--sc-accent-soft) !important;
+    border-bottom: 1px solid var(--sc-border) !important;
+    box-sizing: border-box;
+    color: var(--sc-accent) !important;
+    font-weight: 700;
+    height: 32px;
+    letter-spacing: 0.01em;
+    line-height: 32px;
+}
+
+/* Appointment blocks: dark teal card, accent edge, readable text. */
+.event_appointment, .event_noshow, .event_reserved, .event_in, .event_out {
+    background-color: var(--sc-accent-soft) !important;
+    border: 1px solid var(--sc-accent) !important;
+    border-radius: var(--sc-r-sm) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    padding-left: 0.15rem;
+}
+.event_noshow { background-color: var(--sc-sunk) !important; border-color: var(--sc-border-strong) !important; }
+.event_out, .in_start { background-color: var(--sc-warn-bg) !important; border-color: var(--sc-warn) !important; }
+.event_highlight.event_appointment,
+.event_highlight.event_noshow,
+.event_highlight.event_reserved,
+.event_highlight.event_in {
+    background-color: #17444a !important;   /* one step up from --sc-accent-soft: the hover state, not white */
+    border-color: var(--sc-accent-hover) !important;
+}
+.event_out.event_highlight, .in_start.event_highlight { background-color: #40310f !important; border-color: var(--sc-warn) !important; }
+.event .event_time { color: var(--sc-accent) !important; font-weight: 700; }
+.event .event_time:hover { color: var(--sc-accent-hover) !important; }
+.event .link_title { color: var(--sc-ink); }
+.event .link_title:hover { color: var(--sc-accent); }
+.event .appointment { color: var(--sc-ink); }
+.event .fa-user, .event .fa-user.text-success { color: var(--sc-accent) !important; }
+
+/* Grid canvas, day columns and the time gutter. */
+#bigCal, #bigCal td { background-color: var(--sc-bg); border-color: var(--sc-border); }
+#bigCal td.schedule, .calendar_day { background-color: var(--sc-bg); border-color: var(--sc-border); }
+#times, .calendar-times-col, .calendar-times-inner { background-color: var(--sc-sunk); border-right: 1px solid var(--sc-border); }
+#times .calendar-times-table td, #times td.timeslot { border-color: var(--sc-border); }
+#times a, .timeslot a { color: var(--sc-muted) !important; font-variant-numeric: tabular-nums; }
+#times a:hover, .timeslot a:hover { color: var(--sc-accent) !important; }
+.providerXbtn, td.timeslot.providerXbtn i { color: var(--sc-muted) !important; }
+
+/* Toolbar, chevrons, and the week view's "today" column. */
+#topToolbarRight, .bgcolor2 { background-color: var(--sc-surface) !important; border-bottom: 1px solid var(--sc-border); }
+.chevron_color { color: var(--sc-accent); }
+.week_currday, td.week_currday { background-color: var(--sc-accent-soft) !important; }
+.week_currday a { color: var(--sc-accent) !important; font-weight: 700; }
+.week_dateheader { border-color: var(--sc-border); }
+.week_dateheader a { color: var(--sc-ink); }
+
+/* Mini calendar in the sidebar. */
+#datePicker .tdMonthName-small, #datePicker .tdDOW-small { background-color: var(--sc-sunk) !important; color: var(--sc-muted) !important; }
+#datePicker .tdMonthDay-small, #datePicker td { background-color: transparent !important; color: var(--sc-ink) !important; }
+#datePicker .tdToday-small, #datePicker .today, .ui-datepicker-today a { background-color: var(--sc-accent) !important; color: var(--sc-accent-ink) !important; border-radius: 6px; }
+#datePicker .tdCurrentWeek-small, #datePicker .currentWeek { background-color: var(--sc-accent-soft) !important; }
+#facilityColor .list-group-item { border-left-color: var(--sc-accent) !important; }
