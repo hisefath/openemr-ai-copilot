@@ -1,36 +1,55 @@
-/* Clinical Co-Pilot panel and schedule scan. No inline styles: CSP default-src 'self' (ARCHITECTURE §1). */
+/* Clinical Co-Pilot panel and schedule scan. No inline styles: CSP default-src 'self' (ARCHITECTURE §1), which also
+   rules out web fonts — the system stack below is what ships. Every colour is a token so the dark palette at the end
+   is the only place that redefines them; components never hard-code a colour. */
 :root {
-    --bg: #ffffff;
-    --fg: #1b1b1b;
-    --muted: #4f4f4f;
-    --border: #c4c4c4;
-    --surface: #f5f6f8;
-    --accent: #0b5cad;
+    color-scheme: light dark;
+
+    --bg: #f6f9fa;          /* canvas behind the cards */
+    --surface: #ffffff;     /* cards, banner, ask box */
+    --sunk: #f1f6f7;        /* notice and coverage blocks: quieter than a card, still separated */
+    --fg: #12242c;
+    --muted: #4f656f;
+    --border: #e1e9ed;        /* separators between blocks */
+    --border-strong: #768b95;  /* edges of controls: 3.3-3.6:1 on every surface behind them */
+    --chip: #edf3f5;
+    --chip-fg: #3c525b;
+    --accent: #0c6f78;
     --accent-fg: #ffffff;
-    --chip: #e8ecf2;
-    --high-bg: #fde8e6;
-    --high-fg: #7d1810;
-    --high-edge: #b3261e;
-    --med-bg: #fff3dc;
-    --med-fg: #5c3a00;
-    --med-edge: #b26a00;
-    --ok: #1d6a32;
-    --focus: #1a73e8;
+    --accent-hover: #095a62;
+    --accent-soft: #e1f1f1;
+    --high-bg: #fef0ee;
+    --high-fg: #8b2317;
+    --high-edge: #d2452f;
+    --med-bg: #fff6e7;
+    --med-fg: #74490a;
+    --med-edge: #c98c14;
+    --ok: #14694a;
+    --ok-bg: #e4f3eb;
+    --focus: #0c6f78;
+
+    --r: 14px;              /* cards, banner, ask box */
+    --r-sm: 10px;           /* flags, notices, inner blocks */
+    --pad: 16px;
+    --gap: 12px;
+    --shadow: 0 1px 2px rgba(15, 40, 50, 0.05), 0 10px 26px -18px rgba(15, 40, 50, 0.35);
 }
 
 * { box-sizing: border-box; }
 
 body {
     margin: 0;
+    /* The page gutter lives here, not on main, so the sticky banner (a sibling of main) lines up with the cards. */
+    padding-inline: var(--pad);
     background: var(--bg);
     color: var(--fg);
-    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    letter-spacing: -0.005em;
 }
 
-main { max-width: 60rem; margin: 0 auto; padding: 0.75rem; }
-h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-h2 { font-size: 1rem; margin: 1rem 0 0.4rem; }
-h3 { font-size: 0.8rem; margin: 0.75rem 0 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+main { max-width: 60rem; margin: 0 auto; padding: 0 0 var(--pad); }
+h1 { font-size: 1.3rem; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+h2 { font-size: 0.95rem; margin: 1.1rem 0 0.5rem; }
+h3 { font-size: 0.72rem; margin: 1rem 0 0.4rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
 ul { list-style: none; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
 
@@ -44,81 +63,140 @@ ul { list-style: none; margin: 0; padding: 0; }
 /* Patient banner: sticky so identity stays visible while scrolling (ARCHITECTURE §2 patient identity). */
 .banner {
     position: sticky; top: 0; z-index: 1;
-    background: var(--surface); border-bottom: 2px solid var(--border);
-    padding: 0.5rem 0.75rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 13px 16px; box-shadow: var(--shadow);
+    max-width: 60rem; margin: var(--pad) auto var(--gap);
 }
-.banner-name { font-weight: 700; font-size: 1.05rem; }
-.banner-meta { color: var(--fg); overflow-wrap: anywhere; }
+.banner-name { font-weight: 700; font-size: 1.12rem; letter-spacing: -0.015em; }
+.banner-meta { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
 .banner-meta span + span::before { content: " · "; color: var(--muted); }
-.asof { color: var(--muted); font-size: 0.85rem; }
+.asof { color: var(--muted); font-size: 0.8rem; }
 
 button {
-    font: inherit; cursor: pointer; border-radius: 6px;
-    border: 1px solid var(--accent); background: var(--bg); color: var(--accent);
-    padding: 0.4rem 0.75rem; min-height: 2.25rem;
+    font: inherit; cursor: pointer; font-weight: 600;
+    border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--fg);
+    padding: 0.5rem 1rem; min-height: 2.4rem;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
-button.primary { background: var(--accent); color: var(--accent-fg); }
-button:disabled { cursor: not-allowed; opacity: 0.55; }
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-fg); }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
 fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 
-.ask label { display: block; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+.ask {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 14px 16px; margin: var(--gap) 0; box-shadow: var(--shadow);
+}
+.ask label { display: block; font-weight: 700; margin: 0 0 0.5rem; font-size: 0.92rem; }
 .ask-row { display: flex; gap: 0.5rem; }
 .ask-row input {
-    flex: 1; min-width: 0; font: inherit; padding: 0.4rem 0.5rem;
-    border: 1px solid var(--muted); border-radius: 6px; color: var(--fg); background: var(--bg);
+    flex: 1; min-width: 0; font: inherit; padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-strong); border-radius: 999px; color: var(--fg); background: var(--bg);
 }
-.quick { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.quick { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.quick button { font-size: 0.88rem; padding: 0.42rem 0.9rem; min-height: 2.1rem; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 .status { color: var(--muted); min-height: 1.4em; margin: 0.5rem 0; }
 .alert {
-    border: 2px solid var(--high-edge); background: var(--high-bg); color: var(--high-fg);
-    border-radius: 6px; padding: 0.5rem 0.75rem; font-weight: 600; margin: 0.5rem 0;
+    border: 1px solid var(--high-edge); background: var(--high-bg); color: var(--high-fg);
+    border-radius: var(--r-sm); padding: 0.7rem 0.9rem; font-weight: 600; margin: 0.5rem 0;
 }
-.cid { color: var(--muted); font-size: 0.75rem; overflow-wrap: anywhere; }
+.cid { color: var(--muted); font-size: 0.72rem; overflow-wrap: anywhere; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.25rem 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0; }
 .chip {
-    display: inline-block; background: var(--chip); color: var(--fg);
-    border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.78rem; white-space: nowrap;
+    display: inline-block; background: var(--chip); color: var(--chip-fg);
+    border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.76rem; white-space: nowrap;
 }
-.load-ok, .load-empty { color: var(--ok); }
+.load-ok, .load-empty { color: var(--ok); background: var(--ok-bg); }
 .load-pending { color: var(--muted); }
 .load-forbidden, .load-expired, .load-error, .load-timeout { background: var(--med-bg); color: var(--med-fg); }
 
+/* Flags: a tinted card with a severity dot. High sorts first in JS and is the louder of the two palettes. */
 .flag {
-    border-left: 5px solid var(--med-edge); background: var(--med-bg); color: var(--med-fg);
-    border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.3rem 0;
+    position: relative;
+    background: var(--med-bg); color: var(--med-fg); border: 1px solid var(--med-edge);
+    border-radius: var(--r-sm); padding: 0.7rem 0.9rem 0.7rem 2.2rem; margin: 0.45rem 0;
 }
-.flag-high {
-    border-left-color: var(--high-edge); background: var(--high-bg); color: var(--high-fg);
-    border-top: 1px solid var(--high-edge); border-right: 1px solid var(--high-edge); border-bottom: 1px solid var(--high-edge);
+.flag::before {
+    content: ""; position: absolute; left: 0.9rem; top: 0.95rem;
+    width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--med-edge);
 }
-.flag-sev { font-weight: 700; text-transform: uppercase; font-size: 0.78rem; margin-right: 0.4rem; }
-.flag-high .flag-sev { font-size: 0.85rem; }
+.flag-high { background: var(--high-bg); color: var(--high-fg); border-color: var(--high-edge); }
+.flag-high::before { background: var(--high-edge); }
+.flag-sev { font-weight: 800; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.09em; margin-right: 0.5rem; }
+.flag .chip { background: var(--surface); color: inherit; }
 
 .card {
-    border: 1px solid var(--border); border-radius: 8px;
-    margin: 0.75rem 0; padding: 0.6rem 0.75rem; background: var(--bg);
+    /* panel.js focuses each new card and schedule.js focuses the counts: keep both clear of the sticky banner. */
+    scroll-margin-top: 9rem;
+    border: 1px solid var(--border); border-radius: var(--r);
+    margin: var(--gap) 0; padding: var(--pad); background: var(--surface); box-shadow: var(--shadow);
 }
-.card .banner { position: static; margin: -0.6rem -0.75rem 0.5rem; border-radius: 8px 8px 0 0; }
-.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem; align-items: baseline; }
-.question { font-weight: 600; margin: 0.25rem 0; overflow-wrap: anywhere; }
-.badge { border-radius: 4px; padding: 0.05rem 0.45rem; font-size: 0.78rem; font-weight: 700; border: 1px solid currentColor; }
-.outcome-pass, .outcome-pass_with_removals { color: var(--ok); }
-.outcome-fail, .outcome-refused { color: var(--high-fg); }
-.outcome-clarify { color: var(--med-fg); }
-.notice { background: var(--surface); border-radius: 4px; padding: 0.4rem 0.6rem; margin: 0.4rem 0; }
-.line { padding: 0.25rem 0; border-top: 1px solid var(--surface); overflow-wrap: anywhere; }
-.old { background: var(--med-bg); color: var(--med-fg); border-radius: 4px; padding: 0 0.35rem; font-size: 0.75rem; margin-left: 0.3rem; white-space: nowrap; }
-.coverage { color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem; }
-.withheld { font-size: 0.85rem; margin: 0.4rem 0 0.1rem; }
-.clarify { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0; }
-.clarify button { text-align: left; }
+/* The banner sits flush at the top of the card: same element as the page banner, unstuck and un-shadowed. */
+.card .banner {
+    position: static; max-width: none; margin: calc(var(--pad) * -1) calc(var(--pad) * -1) var(--gap);
+    border: 0; border-bottom: 1px solid var(--border); border-radius: var(--r) var(--r) 0 0;
+    box-shadow: none; background: var(--sunk);
+}
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; align-items: center; }
+.question { font-weight: 700; margin: 0.15rem 0; font-size: 1.02rem; overflow-wrap: anywhere; }
+.badge { border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.74rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.outcome-pass, .outcome-pass_with_removals { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+.outcome-fail, .outcome-refused { color: var(--high-fg); background: var(--high-bg); border-color: transparent; }
+.outcome-clarify { color: var(--med-fg); background: var(--med-bg); border-color: transparent; }
+.notice { background: var(--sunk); border-radius: var(--r-sm); padding: 0.6rem 0.9rem; margin: 0.6rem 0; color: var(--muted); }
+.line { padding: 0.6rem 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.line:first-child { border-top: 0; }
+.old { background: var(--med-bg); color: var(--med-fg); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.74rem; margin-left: 0.35rem; white-space: nowrap; }
+.coverage { color: var(--muted); font-size: 0.86rem; margin-top: 0.75rem; background: var(--sunk); border-radius: var(--r-sm); padding: 0.6rem 0.9rem; }
+.coverage li { padding: 0.08rem 0; }
+.withheld { font-size: 0.84rem; margin: 0.6rem 0 0.15rem; color: var(--muted); }
+.clarify { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0; }
+.clarify button { text-align: left; border-radius: var(--r-sm); }
 
-.counts { font-weight: 700; }
+.counts { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; scroll-margin-top: 9rem; }
+
+/* Dark palette follows the clinician's OS setting: tokens only, so every component above inherits it. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0e1518;
+        --surface: #162126;
+        --sunk: #101a1e;
+        --fg: #e4eef0;
+        --muted: #9bafb6;
+        --border: #24343a;
+        --border-strong: #5a7078;
+        --chip: #1e2c32;
+        --chip-fg: #b6c8ce;
+        --accent: #4fc3be;
+        --accent-fg: #06232a;
+        --accent-hover: #6fd3cf;
+        --accent-soft: #123037;
+        --high-bg: #3a201d;
+        --high-fg: #ffb3a8;
+        --high-edge: #e2685a;
+        --med-bg: #332714;
+        --med-fg: #f0c67a;
+        --med-edge: #c8912f;
+        --ok: #6fd0a0;
+        --ok-bg: #12301f;
+        --focus: #4fc3be;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px -20px rgba(0, 0, 0, 0.9);
+    }
+    .flag .chip { background: rgba(255, 255, 255, 0.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+}
 
 @media (max-width: 30rem) {
     body { font-size: 14px; }
+    :root { --pad: 12px; --gap: 10px; }
     .ask-row { flex-direction: column; }
+    .ask-row input { border-radius: var(--r-sm); }
     .quick button { flex: 1 1 100%; }
 }
