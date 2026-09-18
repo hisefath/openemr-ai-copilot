@@ -69,10 +69,14 @@ if ($already === 0) {
     foreach ($pids as $i => $pid) {
         $start = sprintf('%02d:%02d:00', 8 + intdiv(30 + $i * 20, 60), (30 + $i * 20) % 60);
         QueryUtils::sqlInsert(
+            // pc_sharing = 3 (SHARING_GLOBAL): with no provider selected, the calendar only shows events whose
+            // pc_aid is the logged-in user's or that are globally shared (pnuserapi.php pcQueryEvents). Demo data has
+            // to be visible to whoever opens it — a grader signing in as admin, not just dr_chen.
             'INSERT INTO openemr_postcalendar_events
                (uuid, pc_catid, pc_aid, pc_pid, pc_title, pc_time, pc_hometext, pc_eventDate, pc_endDate, pc_duration,
-                pc_recurrtype, pc_startTime, pc_endTime, pc_alldayevent, pc_apptstatus, pc_eventstatus, pc_facility, pc_billing_location)
-             VALUES (?, 5, ?, ?, ?, NOW(), ?, ?, ?, 900, 0, ?, ADDTIME(?, "00:15:00"), 0, ?, 1, ?, ?)',
+                pc_recurrtype, pc_startTime, pc_endTime, pc_alldayevent, pc_apptstatus, pc_eventstatus, pc_facility,
+                pc_billing_location, pc_sharing)
+             VALUES (?, 5, ?, ?, ?, NOW(), ?, ?, ?, 900, 0, ?, ADDTIME(?, "00:15:00"), 0, ?, 1, ?, ?, 3)',
             [UuidRegistry::getRegistryForTable('openemr_postcalendar_events')->createUuid(), $drId, $pid, 'Office Visit',
              DEMO_TAG, $today, $today, $start, $start, $statuses[$i], $facilityId, $facilityId]
         );
