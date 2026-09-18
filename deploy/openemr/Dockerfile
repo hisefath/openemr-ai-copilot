@@ -22,7 +22,10 @@ RUN sed -i 's/\$timeslotHeightVal = 20;/\$timeslotHeightVal = 32;/g' \
 # Image files are apache-owned and read-only (400 files, 500 dirs); match that so the web user can read the skin.
 COPY custom/assets/custom.yaml /var/www/localhost/htdocs/openemr/custom/assets/custom.yaml
 COPY custom/assets/css/soft-clinical.css /var/www/localhost/htdocs/openemr/custom/assets/css/soft-clinical.css
+COPY custom/assets/js/copilot-launch.js /var/www/localhost/htdocs/openemr/custom/assets/js/copilot-launch.js
 RUN chown apache:apache /var/www/localhost/htdocs/openemr/custom/assets/custom.yaml \
         /var/www/localhost/htdocs/openemr/custom/assets/css/soft-clinical.css \
+        /var/www/localhost/htdocs/openemr/custom/assets/js/copilot-launch.js \
     && chmod 444 /var/www/localhost/htdocs/openemr/custom/assets/custom.yaml \
-        /var/www/localhost/htdocs/openemr/custom/assets/css/soft-clinical.css
+        /var/www/localhost/htdocs/openemr/custom/assets/css/soft-clinical.css \
+        /var/www/localhost/htdocs/openemr/custom/assets/js/copilot-launch.js

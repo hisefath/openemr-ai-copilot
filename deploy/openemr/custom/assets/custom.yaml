@@ -7,3 +7,7 @@ assets:
         basePath: '%webroot%/custom/assets/'
         link: css/soft-clinical.css
         autoload: true
+    copilot-launch:
+        basePath: '%webroot%/custom/assets/'
+        script: js/copilot-launch.js
+        loadInFile: interface/patient_file/summary/demographics.php

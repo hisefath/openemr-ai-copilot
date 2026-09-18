@@ -222,6 +222,18 @@ legend, label, .col-form-label { color: var(--sc-ink); }
 .vertical-band .lead { color: var(--sc-muted); font-size: 1.05rem; }
 
 
+/* One-click Co-Pilot launch injected into the page heading by custom/assets/js/copilot-launch.js. */
+.copilot-quick-launch {
+    align-self: center;
+    border-radius: 999px !important;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-left: 0.75rem;
+    padding: 0.3rem 0.95rem !important;
+    white-space: nowrap;
+}
+.copilot-quick-launch .fa { opacity: 0.85; }
+
 /* ------------------------------------------------------------------ calendar
  * Three things fight a skin here, so each is handled explicitly:
  *   1. Appointment blocks carry an INLINE background-color taken from the category's pc_catcolor database column
