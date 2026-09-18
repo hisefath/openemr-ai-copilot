@@ -272,6 +272,27 @@ legend, label, .col-form-label { color: var(--sc-ink); }
 .event .appointment { color: var(--sc-ink); }
 .event .fa-user, .event .fa-user.text-success { color: var(--sc-accent) !important; }
 
+/* The click-to-create ghost (calendarDirectSelect.js appends
+   <a class='apptMarker event event_appointment'> to .calendar_day on mousemove) must not look like a booking:
+   it is a dashed outline, and it hides while the cursor is over a real appointment. The JS shows it with an inline
+   display, and the rules above are !important, so both need !important to win. */
+.apptMarker.event_appointment {
+    background-color: transparent !important;
+    border: 1px dashed var(--sc-border-strong) !important;
+    box-shadow: none;
+    color: var(--sc-muted);
+    font-weight: 600;
+}
+.apptMarker.event_appointment:hover {
+    background-color: rgba(79, 195, 190, 0.1) !important;
+    border-color: var(--sc-accent) !important;
+    border-style: dashed !important;
+    color: var(--sc-accent);
+}
+/* The marker is appended after the events, so a hovered appointment is always an earlier sibling. */
+.calendar_day .event:hover ~ .apptMarker,
+.calendar_day .event_highlight ~ .apptMarker { display: none !important; }
+
 /* Grid canvas, day columns and the time gutter. */
 #bigCal, #bigCal td { background-color: var(--sc-bg); border-color: var(--sc-border); }
 #bigCal td.schedule, .calendar_day { background-color: var(--sc-bg); border-color: var(--sc-border); }
