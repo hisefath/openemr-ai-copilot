@@ -1,0 +1,9 @@
+---
+# Loaded by \OpenEMR\Core\Header after config/config.yaml (src/Core/Header.php:184-188), so this stylesheet's
+# <link> lands after the theme's and wins the cascade without editing or replacing any shipped theme file.
+# If the CSS ever goes missing, OpenEMR simply renders its stock theme.
+assets:
+    soft-clinical:
+        basePath: '%webroot%/custom/assets/'
+        link: css/soft-clinical.css
+        autoload: true
