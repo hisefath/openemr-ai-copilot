@@ -13,7 +13,7 @@ All LLM numbers below are **measured** from the agent's own per-call logs (token
 | Langfuse | $0 | Free tier |
 | Railway (OpenEMR, MySQL, agent, alerts cron) | ≈ $5–10 | Hobby plan, usage-based |
 
-The API spend is small because development ran **local-first**: OpenEMR, MySQL and the agent run on a laptop, and every expensive loop (fixtures, rules, verification, 225 offline test cases) uses recorded OpenEMR output and a fake Claude. Real Claude is used only for live verification, evals and load tests — and the load tests are 78 % of the bill, which is the honest shape of it: **measuring the thing cost four times what building it did.**
+The API spend is small because development ran **local-first**: OpenEMR, MySQL and the agent run on a laptop, and every expensive loop (fixtures, rules, verification, 226 offline test cases) uses recorded OpenEMR output and a fake Claude. Real Claude is used only for live verification, evals and load tests — and the load tests are 78 % of the bill, which is the honest shape of it: **measuring the thing cost four times what building it did.**
 
 ## 2. Measured cost per question
 

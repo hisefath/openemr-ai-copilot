@@ -37,11 +37,11 @@ agent/          the agent, as a standalone Python distribution (`pip install ./a
                 observability, deadline, schemas, config, alerts — one module per boundary crossed
   tests/        tier 1, offline: real FHIR fixtures, fake Claude, no network
   pyproject.toml / Dockerfile
-deploy/         how it runs: local stack, Railway config, DB schema, demo seeding, the OpenEMR skin
+deploy/         how it runs: local stack, DB schema, demo seeding, and openemr/custom/ - the three files
+                that skin OpenEMR and add the launch button, baked into the deploy image
 evals/          tier 2, live: 32 cases against real Claude and real OpenEMR, plus the alert fault injector
 loadtest/       tier 3: the Locust scenario (10 and 50 concurrent physicians)
 api-collection/ Bruno collection for the agent API, with assertions
-custom/         the two files that skin OpenEMR, loaded through its own asset hook
 *.md            the submission documents, listed above
 ```
 
@@ -56,8 +56,9 @@ Three choices are worth naming, because they are the ones a reviewer will ask ab
   verification, rendering). A subpackage tree would add lookup cost without removing any coupling; the table in
   [agent/README.md](agent/README.md) says what each module owns and why it is not folded into its neighbour.
 - **Nothing shipped by OpenEMR is edited.** The skin and the launch button ride on OpenEMR's own
-  `custom/assets/custom.yaml` hook, and the one PHP constant that had to change is patched in the deploy image, not
-  in the source tree. Delete `custom/assets/` and the stock EHR is back.
+  `custom/assets/custom.yaml` hook — the files live at `deploy/openemr/custom/assets/` and are copied into the
+  image — and the one PHP constant that had to change is patched in that image, not in the source tree. Drop the
+  overlay and the stock EHR is back.
 
 ### Architecture at a glance
 
@@ -108,7 +109,7 @@ docker cp seed_edge_cases.php agentforge-local-openemr-1:/tmp/ && docker exec ag
 
 ```bash
 docker exec agentforge-local-openemr-1 su-exec apache php /tmp/seed_demo.php   # local
-sh deploy/remote_seed.sh seed_demo.php                                        # deployed (needs `railway link`)
+sh ../remote_seed.sh seed_demo.php                                            # deployed (needs `railway link`)
 ```
 
 OpenEMR settings the Co-Pilot needs (Admin → Config, or SQL over TLS): **Enable OpenEMR Standard FHIR REST API** (`rest_fhir_api=1`), **Site Address Override** = `http://localhost:8300` (`site_addr_oath`), **API Log Option = Minimal** (`api_log_option=1`). Then register the SMART app at `POST /oauth2/default/registration` (confidential client, launch URI `http://localhost:8000/smart/launch`, redirect URI `http://localhost:8000/smart/callback`) and enable it under Admin → System → API Clients.
@@ -144,7 +145,7 @@ cd agent && pip install -r requirements.txt -r requirements-dev.txt && python -m
 
 Offline tests run against **real OpenEMR FHIR output** for synthetic patients ([`agent/tests/fixtures`](agent/tests/fixtures)); every test names the failure mode it guards against. [TESTING.md](TESTING.md) covers all four tiers — and which test machinery here is this project's versus OpenEMR's.
 
-Live evals (real Claude, local stack, synthetic patients; about $0.08 per full run):
+Live evals (real Claude, local stack, synthetic patients; about $0.08 per full run). These need two files from your own local setup that are not in this repository — see [evals/README.md](evals/README.md#running) for what they are and where to put them:
 
 ```bash
 python evals/run_evals.py            # all 32 cases, writes evals/results/<timestamp>.json

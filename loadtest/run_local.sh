@@ -39,6 +39,9 @@ until [ "$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$AGENT_URL/health")" = "
 done
 
 CID=$(python3 -c "import json;print(json.load(open('$SMART_CLIENT'))['client_id'])")
+# The minter is not in the OpenEMR image - it is a dev script. Copy it in rather than assume a previous run left
+# it there, so a clean container works too.
+docker cp "$REPO/deploy/local/mint_token.php" "$OPENEMR_CONTAINER:/tmp/mint_token.php" >/dev/null
 TOKEN=$(docker exec "$OPENEMR_CONTAINER" su-exec apache php /tmp/mint_token.php "$CID" dr_chen \
         | python3 -c "import json,sys;print(json.load(sys.stdin)['access_token'])")
 python3 - "$TOKEN" "$RESULTS" "$EDGE_PATIENTS" "$REPO" <<'PY'

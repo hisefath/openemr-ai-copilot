@@ -4,7 +4,7 @@ Two tiers ([ARCHITECTURE.md §9](../ARCHITECTURE.md)). Every case exercises a **
 
 | Tier | What | Where | When |
 |---|---|---|---|
-| Offline | Normalizer, rules, verifier, rendering, sessions, SMART validation, Claude-call handling, UI safety, and end-to-end through `main.py`, all on **real OpenEMR FHIR output** for synthetic patients with fake Claude | [`agent/tests`](../agent/tests) (217 tests) | Every push (GitHub Actions) |
+| Offline | Normalizer, rules, verifier, rendering, sessions, SMART validation, Claude-call handling, UI safety, and end-to-end through `main.py`, all on **real OpenEMR FHIR output** for synthetic patients with fake Claude | [`agent/tests`](../agent/tests) (185 test functions, 226 cases) | Every push (GitHub Actions) |
 | Live | The running agent with **real Claude Haiku**, as real OpenEMR users (physician, nurse, front office), on seeded synthetic patients | [`evals/cases`](cases) (32 cases), [`run_evals.py`](run_evals.py) | On demand; results committed to [`results/`](results) |
 
 ## Live cases
@@ -21,17 +21,41 @@ Every answer is also checked against global invariants: every rendered line cite
 
 ## Running
 
+From the repository root, with the local stack up ([README](../README.md#run-it-locally)) and the agent started
+with `ALLOW_API_SESSIONS=true` and the synthetic patients listed in `EVAL_PATIENT_IDS`:
+
 ```bash
-# local stack running (deploy/local), agent with ALLOW_API_SESSIONS=true and the patients in EVAL_PATIENT_IDS
 python evals/run_evals.py            # all cases
 python evals/run_evals.py S01 X04    # selected cases
 ```
+
+**Two files it needs are not in this repository.** `run_evals.py` mints a token per role user, so it reads the
+local SMART client id and the edge-case patient UUIDs your own setup produced — values that differ on every
+machine and that include a client secret, which is why they are not committed:
+
+| File | Holds | Produced by |
+|---|---|---|
+| `local-smart-client.json` | `client_id` of your local SMART registration | the registration step in the [README](../README.md#run-it-locally) |
+| `local-edge-patients.json` | `{"patients": {"E1": "<uuid>", …}}` for the edge-case patients | `deploy/local/seed_edge_cases.php`, which prints them |
+
+Both are looked for in `../tools/` next to the repository. Point somewhere else with `EVAL_TOOLS_DIR=/path`
+(`run_evals.py`) or `WORKBENCH=/path` (`loadtest/run_local.sh`, which reads the same two files). Without them the
+run stops immediately with a missing-file error rather than part way through.
+
+Each run costs about $0.07 of Anthropic credit and writes `results/<timestamp>.json`.
 
 ## Latest results
 
 | Run | Cases | Latency p50 / p95 / max | Claude cost | Commit |
 |---|---|---|---|---|
-| [2026-09-17 13:13 UTC](results/20260917T131344Z.json) | **32/32** (adversarial 5/5, boundary 15/15, invariant 9/9, regression 3/3) | 2.1 s / 5.3 s / 7.1 s | $0.078 | `c6ca45e` |
+| [2026-09-20 13:31 UTC](results/20260920T133102Z.json) | **32/32** (adversarial 5/5, boundary 15/15, invariant 9/9, regression 3/3) | 1.4 s / 2.6 s / 3.1 s | $0.071 | `20f1c23` |
+| [2026-09-17 13:13 UTC](results/20260917T131344Z.json) | 32/32 | 2.1 s / 5.3 s / 7.1 s | $0.078 | `c6ca45e` |
+
+The 2026-09-20 run is the one [KEY_METRICS.md](../KEY_METRICS.md) reports against, taken after the agent was
+repackaged. `results/` also holds two runs from that morning kept on purpose: `20260920T132925Z.json` is the
+31/32 that caught the schedule scan finding nothing, because `seed_demo.php` dates appointments to the day it
+runs and the local demo was three days stale, and `20260920T133055Z.json` is the single-case re-run of U01
+after re-seeding. A failed run that found a real trap is worth keeping.
 
 ## What the evals found (and what changed)
 

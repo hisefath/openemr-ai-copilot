@@ -72,7 +72,7 @@ Agent throughput at idle is zero by construction: it does no background work bet
 | openemr | 32.0 % | 279 MiB |
 | mysql | 56.6 % | 781 MiB |
 
-`schedule_scan` did not run: the `MorningScan` user only starts when `SCHEDULE_TOKENS_FILE` is set, and a standalone schedule launch needs a token minted from a schedule (non-patient) context, which `run_local.sh` does not mint. The scan path is covered instead by eval cases S01–S04 and by `test_main.py`.
+`schedule_scan` did not run: the `MorningScan` user only starts when `SCHEDULE_TOKENS_FILE` is set, and a standalone schedule launch needs a token minted from a schedule (non-patient) context, which `run_local.sh` does not mint. The scan path is covered instead by eval case U01 (`evals/cases/schedule.json`) and by the schedule-scan tests in `test_fhir.py`.
 
 ### L50 — 50 concurrent users
 

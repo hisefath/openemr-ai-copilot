@@ -1,7 +1,10 @@
 """Live eval tier (ARCHITECTURE §9): runs evals/cases/*.json against a running agent with real Claude, as real OpenEMR
 role users, on synthetic patients. Writes evals/results/<timestamp>.json and prints a summary.
 
-Local (default): tokens are minted in the local OpenEMR container with deploy/local/mint_token.php.
+Local (default): tokens are minted in the local OpenEMR container with deploy/local/mint_token.php, using two
+files from your own setup that are NOT in this repository - local-smart-client.json (your local SMART client id)
+and local-edge-patients.json (the edge-case patient uuids seed_edge_cases.php printed). Both are looked for in
+../tools/ next to the repository; override with EVAL_TOOLS_DIR. See evals/README.md.
   python evals/run_evals.py                      # all cases
   python evals/run_evals.py S01 X01              # selected cases
 Requires: httpx; the local stack running (deploy/local); agent ALLOW_API_SESSIONS=true with the patients in

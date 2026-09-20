@@ -27,8 +27,8 @@ quietly deleted is a fork whose behaviour you can no longer vouch for.
 
 | Tier | Where | Runs | Cost | Gates |
 |---|---|---|---|---|
-| 1 · Offline | `agent/tests/` (184 test functions, 225 cases) | every push, CI | free, seconds | the deploy |
-| 2 · Live evals | `evals/` (32 cases) | by hand before a submission | ~$0.20/run | the release |
+| 1 · Offline | `agent/tests/` (185 test functions, 226 cases) | every push, CI | free, seconds | the deploy |
+| 2 · Live evals | `evals/` (32 cases) | by hand before a submission | ~$0.07/run | the release |
 | 3 · Load | `loadtest/` | by hand, before a submission | ~$0.50/run | the capacity claim |
 | 4 · Alert proof | `evals/fault_injection.py` | once per alert definition change | ~$0.15/run | the monitoring claim |
 
@@ -77,11 +77,15 @@ in [ALERTS.md](ALERTS.md) has been fired this way on purpose.
 
 ## Running them
 
+All four run from the repository root. Tier 1 needs nothing but Python; tiers 2-4 need the local stack up
+([README](README.md#run-it-locally)) and an Anthropic key, and tiers 2 and 4 also need the two workbench files
+described in [evals/README.md](evals/README.md).
+
 ```bash
-cd agent && pip install -r requirements.txt -r requirements-dev.txt && python -m pytest tests   # tier 1
-python evals/run_evals.py                                                                      # tier 2 (needs the local stack + a key)
-sh loadtest/run_local.sh 10 2 5m l10                                                     # tier 3
-python evals/fault_injection.py A1                                                             # tier 4
+(cd agent && pip install -r requirements.txt -r requirements-dev.txt && python -m pytest tests)  # tier 1
+python evals/run_evals.py                                                                        # tier 2
+sh loadtest/run_local.sh 10 2 5m l10                                                             # tier 3
+python evals/fault_injection.py A1                                                               # tier 4
 ```
 
 OpenEMR's own suites are unchanged and documented in [CONTRIBUTING.md](CONTRIBUTING.md); `openemr-cmd unit-test` and
