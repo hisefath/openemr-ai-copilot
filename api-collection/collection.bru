@@ -4,10 +4,17 @@ docs {
   Run the folders in order. Synthetic demo data only.
 
   1. Pick an environment (`local` or `deployed`).
-  2. Get an OpenEMR access token: Collection settings > Auth > OAuth 2.0 > Get Access Token. Sign in as the demo
-     physician (credentials are provided with the submission) and choose the patient when OpenEMR asks. Copy the
-     access token into the `access_token` environment secret.
-  3. Run "0 Service", then each patient folder. Each folder opens its own session; the session handle is stored
+  2. Fill in `client_secret` for the environment you picked (Configure > the environment > client_secret). The
+     `client_id` is already set for `deployed`; for `local` it is whatever your own registration returned.
+  3. Get an OpenEMR access token: Collection settings > Auth > OAuth 2.0 > Get Access Token. Sign in as the demo
+     physician (credentials are provided with the submission). Copy the access token into the `access_token`
+     environment secret.
+
+     The requested scopes are `user/` only, deliberately - no `launch/patient`. A launch context binds the token to
+     one patient on OpenEMR's side, and every session in this collection would then answer about that patient
+     whatever `patient_id` it was given. Without it, the agent takes the patient from the request body and checks it
+     against its own EVAL_PATIENT_IDS allowlist (ARCHITECTURE section 2).
+  4. Run "0 Service", then each patient folder. Each folder opens its own session; the session handle is stored
      automatically and sent as `Authorization: Bearer` on the following requests.
 
   Every request has tests. Every response carries `X-Correlation-ID`, which matches the Langfuse trace and the audit table.
