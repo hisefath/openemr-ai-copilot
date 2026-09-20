@@ -39,7 +39,7 @@ OpenEMR is safe to *build on* only if the Co-Pilot treats the FHIR API as an unr
 
 ## Data defects observed in real OpenEMR FHIR output
 
-Captured from OpenEMR 8.5.0's own FHIR services on imported Synthea patients ([agent/tests/fixtures](agent/tests/fixtures)). Each one produces a plausible, confident, wrong answer if passed straight to an LLM; each has a normalizer rule and a test ([agent/normalize.py](agent/normalize.py)).
+Captured from OpenEMR 8.5.0's own FHIR services on imported Synthea patients ([agent/tests/fixtures](agent/tests/fixtures)). Each one produces a plausible, confident, wrong answer if passed straight to an LLM; each has a normalizer rule and a test ([agent/copilot/normalize.py](agent/copilot/normalize.py)).
 
 | Observed | Consequence if unhandled | Handling |
 |---|---|---|

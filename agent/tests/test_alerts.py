@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-import alerts
+from copilot import alerts
 
 
 def span(latency):

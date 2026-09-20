@@ -21,8 +21,43 @@ A SMART on FHIR app that gives a primary care physician a **verified, cited brie
 | [ALERTS.md](ALERTS.md) | Three alerts and their on-call responses |
 | [LOAD_TEST.md](LOAD_TEST.md) | Load test scenarios and baselines (scripted; results pending) |
 | [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md) | Measured development spend, cost per question, and monthly projections at 100 / 1K / 10K / 100K users with the architecture changes each tier needs |
+| [TESTING.md](TESTING.md) | What is tested at which tier, and which test machinery is this project's versus OpenEMR's |
 | [evals/](evals/) | 32 live eval cases (boundary, safety, adversarial, conversation, schedule) and their [latest results](evals/results/) |
 | [api-collection/](api-collection/) | Bruno collection for the agent API: OAuth2 + PKCE, sessions, questions, schedule scan, with assertions |
+
+### Where the code lives
+
+The Co-Pilot is a fork's worth of OpenEMR plus **two directories of its own**. Nothing upstream was deleted or
+rewritten to make room for it, which is deliberate: the assignment is integrating an agent into working healthcare
+infrastructure, and a fork you have quietly gutted is one whose behaviour you can no longer vouch for.
+
+```
+agent/          the agent, as a standalone Python distribution (`pip install ./agent`)
+  copilot/      the package: main, smart, sessions, fhir, normalize, rules, llm, verify, render, audit,
+                observability, deadline, schemas, config, alerts — one module per boundary crossed
+  tests/        tier 1, offline: real FHIR fixtures, fake Claude, no network
+  pyproject.toml / Dockerfile
+deploy/         how it runs: local stack, Railway config, DB schema, demo seeding, the OpenEMR skin
+evals/          tier 2, live: 32 cases against real Claude and real OpenEMR, plus the alert fault injector
+loadtest/       tier 3: the Locust scenario (10 and 50 concurrent physicians)
+api-collection/ Bruno collection for the agent API, with assertions
+custom/         the two files that skin OpenEMR, loaded through its own asset hook
+*.md            the submission documents, listed above
+```
+
+Three choices are worth naming, because they are the ones a reviewer will ask about:
+
+- **The agent is a package, not scripts.** Everything importable is in `agent/copilot/`, and `agent/pyproject.toml`
+  declares it as a distribution with pinned dependencies and a console script. `pip install ./agent` gives a working
+  agent with no reference to the PHP around it. The agent never imports from the fork — it talks to OpenEMR over
+  FHIR like any other SMART app — so it can be lifted out of this repository unchanged.
+- **The modules are flat inside the package.** Fifteen modules, one per boundary the agent crosses (HTTP, OAuth,
+  FHIR, the model, the database, the trace backend) or per decision it has to defend (normalization, rules,
+  verification, rendering). A subpackage tree would add lookup cost without removing any coupling; the table in
+  [agent/README.md](agent/README.md) says what each module owns and why it is not folded into its neighbour.
+- **Nothing shipped by OpenEMR is edited.** The skin and the launch button ride on OpenEMR's own
+  `custom/assets/custom.yaml` hook, and the one PHP constant that had to change is patched in the deploy image, not
+  in the source tree. Delete `custom/assets/` and the stock EHR is back.
 
 ### Architecture at a glance
 
@@ -79,7 +114,13 @@ docker build -f Dockerfile.dev -t agentforge-agent-dev .
 docker run --rm -v "$PWD":/app agentforge-agent-dev python -m pytest -q
 ```
 
-Offline tests run against **real OpenEMR FHIR output** for synthetic patients ([`agent/tests/fixtures`](agent/tests/fixtures)); every test names the failure mode it guards against.
+…or on the host, without Docker:
+
+```bash
+cd agent && pip install -r requirements.txt -r requirements-dev.txt && python -m pytest
+```
+
+Offline tests run against **real OpenEMR FHIR output** for synthetic patients ([`agent/tests/fixtures`](agent/tests/fixtures)); every test names the failure mode it guards against. [TESTING.md](TESTING.md) covers all four tiers — and which test machinery here is this project's versus OpenEMR's.
 
 Live evals (real Claude, local stack, synthetic patients; about $0.08 per full run):
 
@@ -88,7 +129,7 @@ python evals/run_evals.py            # all 32 cases, writes evals/results/<times
 python evals/fault_injection.py A2   # fires one ALERTS.md alert on purpose, then evaluates it
 ```
 
-Alerts: `agent/alerts.py` evaluates the three [ALERTS.md](ALERTS.md) alerts from Langfuse (`python alerts.py`, or `python alerts.py <from> <to>` to replay a window).
+Alerts: `agent/copilot/alerts.py` evaluates the three [ALERTS.md](ALERTS.md) alerts from Langfuse (`python -m copilot.alerts`, or `python -m copilot.alerts <from> <to>` to replay a window).
 
 OpenEMR itself carries the same look: [`deploy/openemr/`](deploy/openemr/) builds the deployed EHR image from a digest-pinned 8.5.0 base plus one stylesheet loaded through OpenEMR's supported `custom/assets/custom.yaml` hook, on top of OpenEMR's own dark theme (`css_header = style_dark.css`). No shipped theme file is edited; deleting the overlay restores the stock theme. Both the EHR and the panel are fixed dark, independent of the clinician's OS setting.
 

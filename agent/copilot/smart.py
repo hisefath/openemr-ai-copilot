@@ -16,8 +16,8 @@ from urllib.parse import urlencode
 import httpx
 from fastapi.responses import HTMLResponse
 
-from config import Settings
-from sessions import Session, SessionStore
+from .config import Settings
+from .sessions import Session, SessionStore
 
 SCOPES = ("openid", "fhirUser", "launch", "user/Patient.rs", "user/AllergyIntolerance.rs", "user/MedicationRequest.rs",
           "user/Condition.rs", "user/Observation.rs", "user/Encounter.rs", "user/Appointment.rs")

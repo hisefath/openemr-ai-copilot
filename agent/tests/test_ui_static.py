@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 
-import render
-import smart
-from config import Settings
-from schemas import (Coverage, Flag, LoadStatus, MessageRequest, MessageResponse, Outcome, PatientBanner,
-                     PatientContext, RenderedLine, RenderedSection, ScanCounts, ScanPatient, ScheduleScanResponse,
-                     Section, SessionStatus)
+from copilot import render
+from copilot import smart
+from copilot.config import Settings
+from copilot.schemas import (Coverage, Flag, LoadStatus, MessageRequest, MessageResponse, Outcome, PatientBanner,
+                             PatientContext, RenderedLine, RenderedSection, ScanCounts, ScanPatient, ScheduleScanResponse,
+                             Section, SessionStatus)
 
-STATIC = Path(__file__).parent.parent / "static"
+STATIC = Path(__file__).parent.parent / "copilot" / "static"
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGES = {"panel.html": "panel.js", "schedule.html": "schedule.js"}
 JS = list(PAGES.values())

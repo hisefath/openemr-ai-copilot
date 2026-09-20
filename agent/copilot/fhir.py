@@ -13,11 +13,11 @@ from typing import Any, Awaitable, Callable, Coroutine, Dict, Iterable, List, Na
 
 import httpx
 
-import normalize
-import rules
-from deadline import Deadline
-from schemas import (EncounterRecord, EncountersInput, LabHistoryInput, LabRecord, LoadStatus, PatientBanner,
-                     PatientContext, PatientRecord, ResourceLoad, ScanCounts, ScanPatient, ScheduleScanResponse)
+from . import normalize
+from . import rules
+from .deadline import Deadline
+from .schemas import (EncounterRecord, EncountersInput, LabHistoryInput, LabRecord, LoadStatus, PatientBanner,
+                      PatientContext, PatientRecord, ResourceLoad, ScanCounts, ScanPatient, ScheduleScanResponse)
 
 # httpx logs every request URL, query string and patient uuid included, at INFO (COMP-3); call events replace it.
 for _name in ("httpx", "httpcore"):

@@ -4,7 +4,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-import normalize as n
+from copilot import normalize as n
 
 FIX = Path(__file__).parent / "fixtures"
 A = json.loads((FIX / "patient_a.json").read_text())

@@ -8,9 +8,9 @@ from typing import Callable, List, Optional
 
 import pymysql
 
-from config import Settings
-from observability import error_code
-from schemas import AuditEvent
+from .config import Settings
+from .observability import error_code
+from .schemas import AuditEvent
 
 log = logging.getLogger("agent.audit")
 

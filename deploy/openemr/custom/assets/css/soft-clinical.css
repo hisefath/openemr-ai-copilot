@@ -1,4 +1,4 @@
-/* Soft Clinical (dark) skin for OpenEMR 8.5.0 — matches the Clinical Co-Pilot panel (agent/static/copilot.css).
+/* Soft Clinical (dark) skin for OpenEMR 8.5.0 — matches the Clinical Co-Pilot panel (agent/copilot/static/copilot.css).
  *
  * Loaded last on every page through custom/assets/custom.yaml, so it only ever overrides: no shipped theme file is
  * edited, and deleting this file returns whatever theme the css_header global names.

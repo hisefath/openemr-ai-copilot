@@ -4,8 +4,8 @@ import re
 from datetime import date
 from typing import Dict, List, Optional
 
-from schemas import (AllergyRecord, ConditionRecord, EncounterRecord, LabRecord, MedicationRecord, PatientRecord,
-                     VitalRecord)
+from .schemas import (AllergyRecord, ConditionRecord, EncounterRecord, LabRecord, MedicationRecord, PatientRecord,
+                      VitalRecord)
 
 PLACEHOLDER_VALUES = {"{entry.value}"}  # unrendered CCDA template text stored as a lab result
 SEVERITIES = {"mild", "moderate", "severe", "mild to moderate", "moderate to severe"}

@@ -13,11 +13,11 @@ import anthropic
 from anthropic import transform_schema
 from pydantic import BaseModel, ValidationError
 
-import audit
-import observability as obs
-from config import Settings
-from deadline import Deadline
-from schemas import AnswerPlan, EncountersInput, LabHistoryInput, ToolName
+from . import audit
+from . import observability as obs
+from .config import Settings
+from .deadline import Deadline
+from .schemas import AnswerPlan, EncountersInput, LabHistoryInput, ToolName
 
 SYSTEM_PROMPT = """\
 You are the selection step of a clinical co-pilot used by a primary care physician during a short visit. You never \

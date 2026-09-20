@@ -17,8 +17,8 @@ from typing import Any, Dict, Iterator, Optional
 
 from opentelemetry import trace as otel_trace
 
-from config import Settings
-from schemas import LoadStatus
+from .config import Settings
+from .schemas import LoadStatus
 
 log = logging.getLogger("agent.obs")
 

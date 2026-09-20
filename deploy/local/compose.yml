@@ -69,6 +69,9 @@ services:
         required: false
     environment:
       PORT: "8000"
+      # Product default is 3 live panels per physician; a load test drives many virtual users off one demo
+      # account, so run_local.sh raises this for the run only (LOAD_TEST.md). Never raised in deployment.
+      MAX_SESSIONS_PER_USER: "${MAX_SESSIONS_PER_USER:-3}"
     volumes:
       - ./certs/ca.pem:/certs/ca.pem:ro   # verifies the MySQL cert for the audit table
 

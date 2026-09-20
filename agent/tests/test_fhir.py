@@ -10,9 +10,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-import fhir
-from deadline import Deadline
-from schemas import EncountersInput, LabHistoryInput, LoadStatus
+from copilot import fhir
+from copilot.deadline import Deadline
+from copilot.schemas import EncountersInput, LabHistoryInput, LoadStatus
 
 FIX = Path(__file__).parent / "fixtures"
 A = json.loads((FIX / "patient_a.json").read_text())

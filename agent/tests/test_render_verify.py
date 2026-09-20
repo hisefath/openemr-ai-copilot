@@ -5,11 +5,11 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 
-import normalize as n
-import render
-import rules
-import verify as v
-from schemas import AnswerPlan, LabRecord, MedicationRecord, Outcome, PatientContext
+from copilot import normalize as n
+from copilot import render
+from copilot import rules
+from copilot import verify as v
+from copilot.schemas import AnswerPlan, LabRecord, MedicationRecord, Outcome, PatientContext
 
 FIX = Path(__file__).parent / "fixtures"
 A = json.loads((FIX / "patient_a.json").read_text())

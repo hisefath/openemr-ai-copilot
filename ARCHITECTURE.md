@@ -127,7 +127,7 @@ Through one `asyncio.Semaphore` in front of OpenEMR (default 6, set below the PH
 
 **Freshness:** every answer shows "Data as of HH:MM". Before a question, any resource older than 120 s is refetched within the deadline (allergies and medications first).
 
-### Normalization (implemented: `agent/normalize.py`, tests in `agent/tests/test_normalize.py`)
+### Normalization (implemented: `agent/copilot/normalize.py`, tests in `agent/tests/test_normalize.py`)
 
 Each rule handles a defect observed in real OpenEMR output (AUDIT observed-data notes):
 
@@ -160,7 +160,7 @@ AnswerPlan
   clarify:         { candidate_source_ids: [2..4] } | null
 ```
 
-`section` ∈ `visit_context | safety | recent_results | changes | background`. The Pydantic models in `agent/schemas.py` are the contract; the JSON schema sent to Claude is generated from them.
+`section` ∈ `visit_context | safety | recent_results | changes | background`. The Pydantic models in `agent/copilot/schemas.py` are the contract; the JSON schema sent to Claude is generated from them.
 
 ### 4.2 Question flow
 
@@ -188,7 +188,7 @@ Runs on every answer; pure functions; fails closed (a verifier exception produce
 
 **What the server renders** for each record type is a fixed template, e.g. `Metformin 500 MG ER tablet — active in OpenEMR (recorded 2016-02-11) · dosage not recorded` or `Potassium 6.4 mmol/L (2026-09-01) — outside critical range`. Items older than 12 months are marked.
 
-**Rules table** (implemented: `agent/rules.py`, tests: `agent/tests/test_rules.py`): allergy ↔ class (penicillins, cephalosporins, sulfonamide antibiotics, NSAIDs, opioids) with penicillin → cephalosporin cross-reactivity; antiplatelet/anticoagulant + NSAID (bleeding); ACE inhibitor/ARB + potassium-sparing or supplement (hyperkalemia); more than one active statin; simvastatin ≥ 80 mg; latest potassium outside 3.0–6.0 mmol/L, sodium 125–155 mmol/L, glucose 54–400 mg/dL, eGFR < 30, A1c > 10 %, INR > 4, compared only in the expected unit; metformin with latest eGFR < 30. Only active medications count; stale ones still flag, with their date. **Not implemented, by design:** dose-per-day thresholds, because OpenEMR FHIR maps strength as dose and drops numeric dosage text (DQ-4).
+**Rules table** (implemented: `agent/copilot/rules.py`, tests: `agent/tests/test_rules.py`): allergy ↔ class (penicillins, cephalosporins, sulfonamide antibiotics, NSAIDs, opioids) with penicillin → cephalosporin cross-reactivity; antiplatelet/anticoagulant + NSAID (bleeding); ACE inhibitor/ARB + potassium-sparing or supplement (hyperkalemia); more than one active statin; simvastatin ≥ 80 mg; latest potassium outside 3.0–6.0 mmol/L, sodium 125–155 mmol/L, glucose 54–400 mg/dL, eGFR < 30, A1c > 10 %, INR > 4, compared only in the expected unit; metformin with latest eGFR < 30. Only active medications count; stale ones still flag, with their date. **Not implemented, by design:** dose-per-day thresholds, because OpenEMR FHIR maps strength as dose and drops numeric dosage text (DQ-4).
 
 **Known limitations:** selection quality (did Claude pick the *right* records?) is measured by evals, not verified per answer. The dictionary misses unlisted brands and misspellings, and says so. FHIR doesn't expose encounter sensitivity (SEC-M1). Recurring appointments are invisible to UC5.
 
@@ -254,7 +254,7 @@ Two tiers, one case format.
 | OpenEMR | [`deploy/openemr/Dockerfile`](deploy/openemr/Dockerfile): the 8.5.0 base **pinned by digest** (closes OPS-4), plus the Soft Clinical skin as a `custom/assets` overlay on OpenEMR's dark theme (`css_header = style_dark.css`) | `sites/` on a volume; start command waits for config instead of reinstalling (OPS-1); 1 GB memory ceiling (OPS-3) |
 | MySQL | Railway MySQL 9.4 | CA-verified TLS, `REQUIRE SSL`; also hosts `copilot_audit` |
 | Agent | `agent/Dockerfile` | uvicorn without access logs; in-memory sessions (single replica) |
-| Alerts | Railway cron service `alerts` (agent image, `python alerts.py`) | Every 5 min; reads Langfuse with a 10-min ingestion offset |
+| Alerts | Railway cron service `alerts` (agent image, `python -m copilot.alerts`) | Every 5 min; reads Langfuse with a 10-min ingestion offset |
 
 Local development mirrors this: [deploy/local](deploy/local) (same image, MySQL 9.4 with verified TLS, Synthea import).
 

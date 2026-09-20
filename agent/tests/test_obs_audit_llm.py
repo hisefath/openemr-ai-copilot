@@ -21,13 +21,13 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import audit
-import llm
-import normalize as n
-import observability as obs
-from config import Settings
-from deadline import Deadline
-from schemas import AnswerPlan, AuditEvent, AuditEventType, EncountersInput, LabHistoryInput, LoadStatus, ToolName
+from copilot import audit
+from copilot import llm
+from copilot import normalize as n
+from copilot import observability as obs
+from copilot.config import Settings
+from copilot.deadline import Deadline
+from copilot.schemas import AnswerPlan, AuditEvent, AuditEventType, EncountersInput, LabHistoryInput, LoadStatus, ToolName
 
 FIX = Path(__file__).parent / "fixtures"
 A = json.loads((FIX / "patient_a.json").read_text())

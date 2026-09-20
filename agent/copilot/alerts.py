@@ -5,7 +5,7 @@ organizations), evaluates each alert once there are at least MIN_REQUESTS reques
 ALERT_WEBHOOK_URL (Slack/Discord incoming webhook). Every run prints one JSON line. No PHI: only counts, rates, thresholds.
 Exit code is the evaluator's health, not the alerts': 0 when the window was evaluated (firing or not), 1 when it couldn't
 evaluate or couldn't deliver a webhook, so a "crashed" Railway cron run means the monitor itself is broken.
-Run every 5 minutes (Railway cron):  python alerts.py
+Run every 5 minutes (Railway cron):  python -m copilot.alerts
 """
 import json
 import os
@@ -83,7 +83,7 @@ def evaluate(questions: List[dict], scans: int, error_events: List[dict], fhir_c
 def main() -> int:
     host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com").rstrip("/")
     auth = (os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"])
-    if len(sys.argv) == 3:  # replay a past window: python alerts.py 2026-09-17T13:00:00Z 2026-09-17T13:15:00Z
+    if len(sys.argv) == 3:  # replay a past window: python -m copilot.alerts 2026-09-17T13:00:00Z 2026-09-17T13:15:00Z
         start, end = (datetime.fromisoformat(a.replace("Z", "+00:00")) for a in sys.argv[1:])
     else:
         end = datetime.now(timezone.utc) - timedelta(minutes=INGEST_LAG_MIN)

@@ -4,7 +4,7 @@ Three alerts sit on top of the Langfuse dashboard ([KEY_METRICS.md](KEY_METRICS.
 
 ## How alerts are evaluated
 
-- **Evaluator:** [`agent/alerts.py`](agent/alerts.py), deployed as the Railway cron service `alerts` (same image as the agent, start command `python alerts.py`, schedule `*/5 * * * *`, never restarted). It reads Langfuse's public observations API (v2; the legacy traces API is closed to new Langfuse organizations).
+- **Evaluator:** [`agent/copilot/alerts.py`](agent/copilot/alerts.py), deployed as the Railway cron service `alerts` (same image as the agent, start command `python -m copilot.alerts`, schedule `*/5 * * * *`, never restarted). It reads Langfuse's public observations API (v2; the legacy traces API is closed to new Langfuse organizations).
 - **Window:** the 15 minutes ending **10 minutes ago**. Langfuse Cloud took 1 to 8 minutes to make new spans queryable in our measurements, so a window ending "now" undercounts. The cost is detection delay: an incident pages 10 to 25 minutes after it starts. Faster paging needs metrics pushed to a real-time backend (OTel/Prometheus), not a trace store.
 - **Production only:** the evaluator reads the `production` environment (`ALERT_ENVIRONMENT`). The Railway agent sets `LANGFUSE_TRACING_ENVIRONMENT=production`; local runs, evals and fault tests report as `default`, so they can't page anyone. (Before this filter, the fault tests below made the deployed cron report alerts for traffic production never had.)
 - **Minimum volume:** an alert only evaluates when there are **≥ 20 requests** in the window. Below that, one slow request would page someone at 3 AM for nothing.
@@ -12,7 +12,7 @@ Three alerts sit on top of the Langfuse dashboard ([KEY_METRICS.md](KEY_METRICS.
 - **Exit code = the monitor's own health:** 0 whenever the window was evaluated, firing or not; 1 only when the evaluator couldn't reach Langfuse or couldn't deliver a webhook. A "crashed" run in Railway therefore means alerting itself is broken. (The first version exited 1 on a firing alert, and Railway showed every run during the fault tests as crashed.)
 - **No de-duplication yet:** a firing alert notifies on every 5-minute run until its window drops below threshold. Add a last-notified record when that gets noisy.
 - **No PHI:** payloads contain only metric values, thresholds, request counts and the window.
-- **Replay:** `python alerts.py <from> <to>` evaluates any past window (ISO timestamps), for postmortems and for the tests below.
+- **Replay:** `python -m copilot.alerts <from> <to>` evaluates any past window (ISO timestamps), for postmortems and for the tests below.
 
 Definitions used below (same as ARCHITECTURE §7):
 - **Request** = one `POST /api/session/messages` (a question) or `POST /api/schedule/scan`.
@@ -72,7 +72,7 @@ Definitions used below (same as ARCHITECTURE §7):
 
 ## Testing the alerts
 
-Each alert was fired once on purpose with [`evals/fault_injection.py`](evals/fault_injection.py) on 2026-09-17. The script starts a second local agent (port 8001) with one fault injected, asks 22 questions over 4 sessions as the demo physician, then runs `alerts.py` over exactly that window once Langfuse has ingested every request. Synthetic data only.
+Each alert was fired once on purpose with [`evals/fault_injection.py`](evals/fault_injection.py) on 2026-09-17. The script starts a second local agent (port 8001) with one fault injected, asks 22 questions over 4 sessions as the demo physician, then runs `copilot.alerts` over exactly that window once Langfuse has ingested every request. Synthetic data only.
 
 | Alert | Fault injected | Fired? | Result (22 requests each) |
 |---|---|---|---|

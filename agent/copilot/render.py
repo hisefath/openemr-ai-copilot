@@ -6,9 +6,9 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
-import rules
-from schemas import (AllergyRecord, ConditionRecord, Coverage, EncounterRecord, Flag, LabRecord, LoadStatus,
-                     MedicationRecord, PatientBanner, PatientContext, Record, RenderedLine, VitalRecord)
+from . import rules
+from .schemas import (AllergyRecord, ConditionRecord, Coverage, EncounterRecord, Flag, LabRecord, LoadStatus,
+                      MedicationRecord, PatientBanner, PatientContext, Record, RenderedLine, VitalRecord)
 
 KINDS = ("allergies", "medications", "conditions", "labs", "vitals", "encounters")
 LABELS = {"allergies": "Allergies", "medications": "Medications", "conditions": "Conditions", "labs": "Labs",

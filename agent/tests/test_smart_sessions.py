@@ -11,10 +11,10 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-import smart
-from config import Settings
-from sessions import IDLE_TTL_S, SessionStore, handle_hash
-from smart import StateStore, UpstreamUnavailable, ValidationFailed
+from copilot import smart
+from copilot.config import Settings
+from copilot.sessions import IDLE_TTL_S, SessionStore, handle_hash
+from copilot.smart import StateStore, UpstreamUnavailable, ValidationFailed
 
 FIX = Path(__file__).parent / "fixtures"
 PID_A = json.loads((FIX / "patient_a.json").read_text())["patient_uuid"]

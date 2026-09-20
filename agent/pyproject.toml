@@ -1,0 +1,40 @@
+# The agent is its own Python distribution, not loose scripts inside the OpenEMR fork: everything importable lives
+# in the `copilot` package, so `pip install ./agent` gives you a working agent with no reference to the PHP around
+# it. Runtime pins stay in requirements.txt as well, because the Dockerfile installs them in a separate layer that
+# only re-runs when the pins change (copying the source would bust that cache on every edit).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openemr-clinical-copilot"
+version = "1.0.0"
+description = "Read-only SMART on FHIR clinical co-pilot for OpenEMR: verified answers at the point of care."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "fastapi==0.128.8",
+    "uvicorn==0.39.0",
+    "httpx==0.28.1",
+    "anthropic==0.125.0",
+    "langfuse==3.7.0",
+    "pydantic==2.13.5",
+    "PyMySQL==1.1.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2"]
+
+[project.scripts]
+copilot-alerts = "copilot.alerts:main"
+
+[tool.setuptools]
+packages = ["copilot"]
+
+[tool.setuptools.package-data]
+copilot = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

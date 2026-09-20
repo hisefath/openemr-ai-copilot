@@ -6,10 +6,10 @@ from typing import Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, Field
 
-import render
-import rules
-from schemas import (AnswerPlan, Coverage, Flag, Intent, LabRecord, MessageResponse, Outcome, PatientBanner,
-                     PatientContext, RecordItem, RenderedLine, RenderedSection, ScopeViolation, Section)
+from . import render
+from . import rules
+from .schemas import (AnswerPlan, Coverage, Flag, Intent, LabRecord, MessageResponse, Outcome, PatientBanner,
+                      PatientContext, RecordItem, RenderedLine, RenderedSection, ScopeViolation, Section)
 
 # Fixed server text. The refusal is identical for every scope violation and never says whether another patient exists.
 REFUSAL = "The Co-Pilot only answers questions about the patient open in this chart, from this chart's records."

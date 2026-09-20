@@ -1,4 +1,4 @@
-"""Fires one ALERTS.md alert on purpose against the local stack, then evaluates that window with agent/alerts.py.
+"""Fires one ALERTS.md alert on purpose against the local stack, then evaluates that window with agent/copilot/alerts.py.
 
 A second agent container (127.0.0.1:8001) runs with one fault injected; the normal local agent is left alone.
   A1  Claude is slow: Anthropic calls go through a proxy that adds 9 s (question deadline raised to 15 s)
@@ -108,14 +108,14 @@ def ask(n: int, per_session: int = 6) -> None:
 
 
 def evaluate(start_at: datetime, end_at: datetime, deadline_s: str) -> dict:
-    """alerts.py over exactly this run's window, retried until Langfuse has ingested every request (bounded: 15 min;
+    """copilot.alerts over exactly this run's window, retried until Langfuse has ingested every request (bounded: 15 min;
     ingestion was measured at 1-8 min)."""
     window = [start_at.isoformat().replace("+00:00", "Z"), end_at.isoformat().replace("+00:00", "Z")]
     deadline = time.monotonic() + 900
     while True:
         out = subprocess.run(["docker", "run", "--rm", "-v", f"{ROOT / 'agent'}:/app", "-w", "/app",
                               "--env-file", str(ROOT / "agent/.env"), "-e", "ALERT_ENVIRONMENT=default", "-e", f"QUESTION_DEADLINE_S={deadline_s}",
-                              "agentforge-agent-dev", "python", "alerts.py", *window],
+                              "agentforge-agent-dev", "python", "-m", "copilot.alerts", *window],
                              capture_output=True, text=True).stdout.strip().splitlines()
         result = json.loads(out[-1]) if out else {"results": []}
         if (result["results"] and result["results"][0]["requests"] >= QUESTIONS_ASKED) or time.monotonic() > deadline:

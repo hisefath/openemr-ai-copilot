@@ -7,7 +7,7 @@ ranges or abnormal flags (AUDIT DQ-7), so critical-value thresholds are defined 
 import re
 from typing import Iterable, List, Optional
 
-from schemas import AllergyRecord, Flag, LabRecord, MedicationRecord
+from .schemas import AllergyRecord, Flag, LabRecord, MedicationRecord
 
 
 # Drug classes by lowercase name fragments (generic names; brand names where common in primary care).

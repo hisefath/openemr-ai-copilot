@@ -4,9 +4,9 @@ import json
 from datetime import date
 from pathlib import Path
 
-import normalize as n
-import rules
-from schemas import AllergyRecord, LabRecord, MedicationRecord
+from copilot import normalize as n
+from copilot import rules
+from copilot.schemas import AllergyRecord, LabRecord, MedicationRecord
 
 FIX = Path(__file__).parent / "fixtures"
 A = json.loads((FIX / "patient_a.json").read_text())

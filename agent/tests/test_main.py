@@ -11,11 +11,11 @@ import pytest
 from anthropic.types import Message
 from fastapi.testclient import TestClient
 
-import audit
-import fhir
-import main
-import observability as obs
-from schemas import AuditEventType
+from copilot import audit
+from copilot import fhir
+from copilot import main
+from copilot import observability as obs
+from copilot.schemas import AuditEventType
 
 FIX = json.loads((Path(__file__).parent / "fixtures" / "edge_patients.json").read_text())
 E1 = FIX["E1"]

@@ -1,16 +1,20 @@
 """In-memory sessions (ARCHITECTURE §1 browser -> agent boundary, §2 re-launch, AUDIT SEC-5).
 The browser holds a 256-bit handle; the server keeps only sha256(handle). Single replica by design (§10, §11 moves this to Redis)."""
 import hashlib
+import os
 import secrets
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Deque, Dict, List, Literal, NamedTuple, Optional, Set, Tuple
 
-from schemas import RenderedLine
+from .schemas import RenderedLine
 
 IDLE_TTL_S = 15 * 60
-MAX_SESSIONS_PER_USER = 3
+# One physician needs a handful of live panels (chart, re-launch, schedule window), so 3 is the product default and
+# what the eviction test pins. It is read from the environment only so a load test can simulate many concurrent
+# sessions per demo account without tripping eviction and logging false 401s (LOAD_TEST.md).
+MAX_SESSIONS_PER_USER = int(os.environ.get("MAX_SESSIONS_PER_USER", "3"))
 HISTORY_TURNS = 6
 PREFETCH_REUSE_S = 120
 
