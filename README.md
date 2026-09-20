@@ -108,7 +108,7 @@ docker cp seed_edge_cases.php agentforge-local-openemr-1:/tmp/ && docker exec ag
 
 ```bash
 docker exec agentforge-local-openemr-1 su-exec apache php /tmp/seed_demo.php   # local
-railway ssh --service openemr 'su-exec apache php /tmp/seed_demo.php'          # deployed
+sh deploy/remote_seed.sh seed_demo.php                                        # deployed (needs `railway link`)
 ```
 
 OpenEMR settings the Co-Pilot needs (Admin → Config, or SQL over TLS): **Enable OpenEMR Standard FHIR REST API** (`rest_fhir_api=1`), **Site Address Override** = `http://localhost:8300` (`site_addr_oath`), **API Log Option = Minimal** (`api_log_option=1`). Then register the SMART app at `POST /oauth2/default/registration` (confidential client, launch URI `http://localhost:8000/smart/launch`, redirect URI `http://localhost:8000/smart/callback`) and enable it under Admin → System → API Clients.
