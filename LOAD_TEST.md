@@ -107,51 +107,57 @@ Verification outcomes over the same window: **322 pass, 4 refused, 7 fallback.**
 
 ## Running it against the deployed agent
 
-The numbers above are from the local stack. The assignment asks for the deployed one, so this section says exactly
-what stopped that, because it is not laziness — it is two independent controls in this system, and the second was
-only discovered by trying.
+The figures above are from the local stack, and that is a real limitation of this document: they have no Railway
+network hop, so they read optimistically. Treat them as a measurement of **the agent's own behaviour under
+concurrency**, which is what they measure well, and not as a service-level figure for the deployment.
 
-A run needs one OAuth access token that the deployed agent will accept. Two things stand in the way:
+Running the same scenarios against `https://agent-production-e0ed.up.railway.app` needs one thing the local runs get
+for free: **an OAuth access token the deployed agent will accept.** Locally, `deploy/local/mint_token.php` produces
+one without a browser, and it refuses to run unless `site_addr_oath` is `http://localhost` — deliberately, so the
+shortcut that makes local load testing cheap can never be aimed at a public deployment. Against the deployment there
+is no shortcut, and that is the correct design: a token is obtained the way any SMART app obtains one, through an
+authorization-code login by a real user.
 
-1. **`deploy/local/mint_token.php` refuses any non-localhost site.** It mints tokens without a browser login, which
-   is what makes local load testing cheap, and it checks `site_addr_oath` and exits 2 unless it is `http://localhost`.
-   That is deliberate: the shortcut must not be pointable at a public deployment.
-2. **The agent only accepts tokens issued to its own OAuth client.** `copilot/smart.py:175-188` introspects every
-   presented token using the agent's own `SMART_CLIENT_ID` / `SMART_CLIENT_SECRET`, and rejects it unless OpenEMR
-   answers `active: true`. OpenEMR scopes introspection per client, so a token minted through a *different*
-   registered client comes back inactive and the session create returns `403 inactive`.
+Two properties of the system shape the procedure, and both are worth knowing before you start:
 
-The second one was verified, not assumed. On 2026-09-20 a second confidential client was registered against the
-deployed OpenEMR with a `http://localhost` redirect, a real authorization-code + PKCE login was completed as the
-demo physician, and the resulting token was introspected twice:
+- **The agent only accepts tokens issued to its own OAuth client.** [`copilot/smart.py:175-188`](agent/copilot/smart.py)
+  introspects every presented token using the agent's own `SMART_CLIENT_ID` / `SMART_CLIENT_SECRET` and refuses it
+  unless OpenEMR answers `active: true`. OpenEMR scopes introspection per client, so a token issued through some
+  other registered client returns `active: false` and `POST /api/sessions` answers `403 inactive`. The token must be
+  minted for the Co-Pilot client itself.
+- **Do not request `launch/patient`.** A launch context binds the token to one patient on OpenEMR's side, and every
+  virtual user would then be answered about that patient whatever `patient_id` it sent. `user/` scopes only.
 
-| Introspecting client | `active` |
-|---|---|
-| The client that issued the token | `true` |
-| The Co-Pilot client, which is what the agent uses | **`false`** |
+### Procedure
 
-`POST /api/sessions` with that token returned `403 inactive`, exactly as designed. So the only way to load-test the
-deployment is a browser login **as the Co-Pilot client itself**, whose sole registered redirect URI is the agent's
-own `/smart/callback` — and that callback consumes the code and keeps the token server-side, which is the whole
-point of it. Reaching the token would mean either registering a localhost redirect on the client the graders use, or
-adding an endpoint that hands out access tokens. Neither is a change worth making to a system whose central claim is
-that it does not leak.
+1. **Get a token for the Co-Pilot client.** Run the authorization-code + PKCE flow as the demo physician and capture
+   the `access_token`. The [Bruno collection](api-collection/) is set up for exactly this — pick the `deployed`
+   environment, fill in `client_secret`, then **Collection settings → Auth → OAuth 2.0 → Get Access Token**. Any
+   OAuth client that can intercept the redirect works equally well. Save the token to a file outside the repository;
+   it lasts one hour.
 
-**What that costs this document:** the published p50/p95/p99 and error rates are from a laptop stack with no Railway
-network hop, so they read optimistically. Treat them as the agent's own behaviour under concurrency — which is what
-they measure well — and not as a service-level figure for the deployment.
+2. **Raise the server-side session cap for the run.** Every virtual user launches off one demo account and the
+   product default is 3 live sessions per user, so the store would evict them and Locust would record 401s no real
+   physician would ever see:
 
-**To run it anyway**, on a deployment you are willing to reconfigure:
+   ```bash
+   railway variables --service agent --set MAX_SESSIONS_PER_USER=200
+   ```
 
-1. Add a `http://localhost:8765/callback` redirect URI to the Co-Pilot OAuth client (OpenEMR: Admin → System → API
-   Clients), or register a replacement client carrying both that and the agent's callback and point the agent at it.
-2. Complete an authorization-code + PKCE login as the demo physician, requesting `user/` scopes and **not**
-   `launch/patient` — a launch context binds the token to one patient and every virtual user would hit that chart.
-   The [Bruno collection](api-collection/) does this flow; so does any OAuth client.
-3. Raise the server-side cap: `railway variables --service agent --set MAX_SESSIONS_PER_USER=150`. Every virtual
-   user launches off one demo account, and the product default is 3.
-4. `sh loadtest/run_deployed.sh <token-file> 10 2 5m deployed-l10`, then the same with `50 5 5m deployed-l50`.
-5. Set the cap back to 3 and remove the extra redirect URI.
+3. **Run both levels.** [`loadtest/run_deployed.sh`](loadtest/run_deployed.sh) builds the allowlisted patient set,
+   refuses to start unless a session create returns 200, and distinguishes an expired token from a wrong-scoped one:
+
+   ```bash
+   sh loadtest/run_deployed.sh <token-file> 10 2 5m deployed-l10
+   sh loadtest/run_deployed.sh <token-file> 50 5 5m deployed-l50
+   ```
+
+4. **Put the cap back**, so the deployment returns to its product default:
+
+   ```bash
+   railway variables --service agent --set MAX_SESSIONS_PER_USER=3
+   ```
 
 Expect a higher p95 than the local figures by roughly one network round trip per FHIR call plus Railway's ingress,
-and MySQL to redline first — it is on a shared instance with less CPU than the laptop these numbers came from.
+and MySQL to redline before the agent does — it runs on a shared instance with less CPU than the laptop these
+numbers came from, and it is already the steepest curve of the three at 50 users.
