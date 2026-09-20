@@ -39,7 +39,14 @@ PY
 # Fail fast rather than burning the whole run on 401s from an expired or wrong-scoped token.
 CHECK=$(curl -s -o /dev/null -w '%{http_code}' -m 30 -X POST "$AGENT/api/sessions" -H 'content-type: application/json' \
         -d "$(python3 -c "import json;print(json.dumps(json.load(open('$RESULTS/tokens-deployed.json'))[0]))")")
-[ "$CHECK" = "200" ] || { echo "FATAL: session create returned $CHECK (401 = token expired or wrong scopes; 403 = patient not in EVAL_PATIENT_IDS)"; exit 1; }
+if [ "$CHECK" != "200" ]; then
+    echo "FATAL: session create returned $CHECK."
+    echo "  401 -> token expired (they last an hour) or carries a scope the agent refuses."
+    echo "  403 -> either the patient is not in the agent's EVAL_PATIENT_IDS, or the token was issued to a"
+    echo "         DIFFERENT OAuth client than the agent's own: OpenEMR scopes introspection per client, so the"
+    echo "         agent sees active=false and answers 'inactive'. See LOAD_TEST.md."
+    exit 1
+fi
 echo "$LABEL: token ok against $AGENT, starting $USERS users for $TIME"
 
 docker run --rm -v "$RESULTS":/work -v "$REPO/loadtest":/lt \
