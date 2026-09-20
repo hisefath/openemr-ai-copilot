@@ -258,7 +258,7 @@ Two tiers, one case format.
 
 Local development mirrors this: [deploy/local](deploy/local) (same image, MySQL 9.4 with verified TLS, Synthea import).
 
-**Load testing** ([LOAD_TEST.md](LOAD_TEST.md)): Locust scenarios (launch + brief, follow-up, schedule scan) at 10 and 50 users with pre-minted tokens for synthetic sessions; records p50/p95/p99, error rate, throughput, FHIR vs LLM time, LLM cost, and Railway CPU and memory for each service. *Scripted; not yet run.*
+**Load testing** ([LOAD_TEST.md](LOAD_TEST.md)): Locust scenarios (launch + brief, follow-up, schedule scan) at 10 and 50 users with pre-minted tokens for synthetic sessions; records p50/p95/p99, error rate, throughput, FHIR vs LLM time, LLM cost, and container CPU and memory for each service. *Run 2026-09-20 on the local stack: p95 3.2 s at 10 users with no failures, 3.0 s at 50 users with 1.9 % fallbacks, against a 10 s budget. p95 did not move across the 5× step; throughput did. MySQL, not the agent, is the next ceiling.*
 
 **Cost** ([AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md)): measured tokens per use case from Langfuse at Haiku 4.5 prices, dev spend from the Anthropic console, and projections for 100 / 1K / 10K / 100K users with the architecture change each tier needs.
 

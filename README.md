@@ -113,6 +113,21 @@ sh deploy/remote_seed.sh seed_demo.php                                        # 
 
 OpenEMR settings the Co-Pilot needs (Admin → Config, or SQL over TLS): **Enable OpenEMR Standard FHIR REST API** (`rest_fhir_api=1`), **Site Address Override** = `http://localhost:8300` (`site_addr_oath`), **API Log Option = Minimal** (`api_log_option=1`). Then register the SMART app at `POST /oauth2/default/registration` (confidential client, launch URI `http://localhost:8000/smart/launch`, redirect URI `http://localhost:8000/smart/callback`) and enable it under Admin → System → API Clients.
 
+The audit table the agent writes to, and its INSERT-only user, come from [deploy/sql/copilot_audit.sql](deploy/sql/copilot_audit.sql). Apply it to the same MySQL:
+
+```bash
+docker exec -i agentforge-local-mysql-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < ../sql/copilot_audit.sql
+```
+
+Now start the agent. **Copy [`agent/.env.example`](agent/.env.example) to `agent/.env` first** — it lists every variable the agent reads, with the local stack's values and a note on which are optional. Fill in `SMART_CLIENT_ID` / `SMART_CLIENT_SECRET` from the registration above, `ANTHROPIC_API_KEY`, the Langfuse keys, `AUDIT_DB_PASSWORD`, and `EVAL_PATIENT_IDS` if you want the API-session path:
+
+```bash
+docker-compose -f compose.yml up -d agent          # Co-Pilot at http://localhost:8000
+curl -s localhost:8000/ready                       # {"ready":true,...} once OpenEMR, Anthropic and Langfuse answer
+```
+
+Then open a patient in OpenEMR and click **Clinical Co-Pilot** beside their name.
+
 ### Tests
 
 ```bash

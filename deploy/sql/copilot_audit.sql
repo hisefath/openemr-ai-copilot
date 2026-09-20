@@ -1,5 +1,5 @@
 -- Clinical Co-Pilot audit table (ARCHITECTURE.md §7, AUDIT.md COMP-7).
--- Columns match agent/schemas.py AuditEvent. No clinical values, no question or answer text.
+-- Columns match agent/copilot/schemas.py AuditEvent. No clinical values, no question or answer text.
 -- Run once as a MySQL admin over a verified TLS session. Retention target: 6 years.
 -- Tamper evidence is limited to database permissions: the agent's user can only INSERT.
 

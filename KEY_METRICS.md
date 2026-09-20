@@ -45,7 +45,11 @@ The only usage signal we collect without storing what was asked. If physicians a
 
 ## How these become the dashboard
 
-The Langfuse dashboard shows #1, #2 and #6 continuously, next to the engineering minimums (requests, error rate, tool calls, retries, verification pass/fail). #3, #4 and #5 come from the eval suite on every run ([evals](evals/)) and from audit rows in production. Alerts on #1 and on errors and tool failures are defined in [ALERTS.md](ALERTS.md).
+The Langfuse dashboard shows #1, #2 and #6 continuously, next to the engineering minimums — total requests (questions + schedule scans), errors, p50/p95 latency, tool call counts, retries, queue waits and verification pass/fail. It is code, not clicks: [`deploy/langfuse_dashboard.py`](deploy/langfuse_dashboard.py) defines all 17 widgets and is safe to re-run.
+
+Two of those minimums are **rates**, and Langfuse's widget API aggregates one measure per widget, so they stay as formulas over numbers that are both on the board: **error rate = Errors ÷ Requests**, **tool failure rate = tool_failure ÷ fhir_call**. Those are the same definitions the alerts in [ALERTS.md](ALERTS.md) evaluate in code, so the board and the pager cannot drift apart.
+
+#3, #4 and #5 come from the eval suite on every run ([evals](evals/)) and from audit rows in production.
 
 ## Current values
 

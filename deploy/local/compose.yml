@@ -63,9 +63,9 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     env_file:
-      - path: ../../agent/.env          # API keys (gitignored)
+      - path: ../../agent/.env          # every variable the agent reads; copy from agent/.env.example (gitignored)
         required: true
-      - path: ../../agent/.env.local    # local OpenEMR URLs, SMART client, audit DB (gitignored; see README)
+      - path: ../../agent/.env.local    # optional split: keep secrets in .env and local URLs here (gitignored)
         required: false
     environment:
       PORT: "8000"

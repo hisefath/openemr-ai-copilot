@@ -9,8 +9,10 @@ import time
 import httpx
 
 NAME = "Clinical Co-Pilot operations"
-DESCRIPTION = ("Requests, errors, latency, tool calls, retries and verification outcomes for the Co-Pilot agent. "
-               "Error rate = Errors / Questions answered; tool failure rate = tool_failure / fhir_call (ALERTS.md).")
+DESCRIPTION = ("Requests, errors, latency, tool calls, retries, queue waits and verification outcomes for the Co-Pilot "
+               "agent. Error rate = Errors / Requests (questions + scans); tool failure rate = tool_failure / fhir_call "
+               "(ALERTS.md). Langfuse widgets aggregate one measure each, so the two rates stay as formulas over the "
+               "numbers on the board rather than widgets of their own.")
 
 
 def name_is(value):
@@ -28,10 +30,17 @@ def outcome(value):
 COUNT = [{"measure": "count", "agg": "count"}]
 # (name, chartType, metrics, dimensions, filters, x, y, width, height)
 WIDGETS = [
-    ("Questions answered", "NUMBER", COUNT, [], [name_is("metric.verification")], 0, 0, 3, 4),
+    # Total requests is every agent invocation, which ALERTS.md defines as a question or a schedule scan - not
+    # "questions answered", which counts only the ones that reached verification and so drops scans and any request
+    # that failed before it. It is the denominator of the error rate, so getting it wrong flatters the rate.
+    ("Requests (questions + scans)", "NUMBER", COUNT, [], [names("message", "schedule_scan")], 0, 0, 3, 4),
     ("Errors", "NUMBER", COUNT, [], [name_is("metric.error")], 3, 0, 3, 4),
     ("p95 answer latency (ms)", "NUMBER", [{"measure": "latency", "agg": "p95"}], [], [name_is("message")], 6, 0, 3, 4),
     ("Claude cost (USD)", "NUMBER", [{"measure": "totalCost", "agg": "sum"}], [], [name_is("claude")], 9, 0, 3, 4),
+    ("Requests over time (questions + scans)", "BAR_TIME_SERIES", COUNT, [{"field": "name"}],
+     [names("message", "schedule_scan")], 0, 24, 6, 6),
+    ("Questions answered (error-rate denominator cross-check)", "NUMBER", COUNT, [],
+     [name_is("metric.verification")], 6, 24, 3, 4),
     ("Answer latency p50 / p95 (ms)", "LINE_TIME_SERIES",
      [{"measure": "latency", "agg": "p50"}, {"measure": "latency", "agg": "p95"}], [], [name_is("message")], 0, 4, 6, 6),
     ("Answers, errors and tool failures", "BAR_TIME_SERIES", COUNT, [{"field": "name"}],
