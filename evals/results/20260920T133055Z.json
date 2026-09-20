@@ -1,0 +1,47 @@
+{
+ "summary": {
+  "started_at": "2026-09-20T13:30:55+00:00",
+  "agent": "http://localhost:8000",
+  "commit": "20f1c23",
+  "cases": 1,
+  "passed": 1,
+  "by_category": {
+   "invariant": "1/1"
+  },
+  "by_use_case": {
+   "UC5": "1/1"
+  },
+  "latency_s": {
+   "p50": null,
+   "p95": null,
+   "max": null,
+   "n": 0
+  },
+  "llm_cost_usd": 0,
+  "outcomes": {}
+ },
+ "results": [
+  {
+   "id": "U01",
+   "use_case": "UC5",
+   "category": "invariant",
+   "user": "dr_chen",
+   "failure_mode_guarded": "Schedule scan skipping appointments (FHIR 'proposed' status bug found in design), counting cancelled or no-show visits, or missing flagged patients.",
+   "turns": [
+    {
+     "scan": {
+      "scheduled": 8,
+      "checked": 8,
+      "failed": 0,
+      "flagged": 3
+     },
+     "latency_s": 0.77,
+     "correlation_id": "1362871f-8c35-4fce-b4ab-934358eaabab",
+     "failures": []
+    }
+   ],
+   "failures": [],
+   "passed": true
+  }
+ ]
+}

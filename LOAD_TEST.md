@@ -113,11 +113,15 @@ That is a deliberate control, not an oversight. [`deploy/local/mint_token.php`](
 
 To run it:
 
-1. Run the `1 · authorize` and `2 · token` requests in the [Bruno collection](api-collection/) against the deployed OpenEMR, signing in as the demo physician. Copy the `access_token`.
+1. In the [Bruno collection](api-collection/), pick the `deployed` environment and use **Collection settings → Auth → OAuth 2.0 → Get Access Token** (authorization code + PKCE against the deployed OpenEMR). Sign in as the demo physician and copy the `access_token`.
 2. Write `tokens.json` outside the repository: `[{"access_token": "<token>", "patient_id": "<demo patient uuid>"}, …]`, one entry per patient you want covered.
-3. ```
-   COPILOT_TOKENS_FILE=tokens.json MAX_SESSIONS_PER_USER=150    locust -f loadtest/locustfile.py --host https://agent-production-e0ed.up.railway.app           --users 50 --spawn-rate 5 --run-time 5m --headless --csv results/deployed-l50
+3. Raise `MAX_SESSIONS_PER_USER` on the Railway **agent** service to at least 3× the user count for the run (`railway variables --service agent --set MAX_SESSIONS_PER_USER=150`), and set it back to 3 afterwards — the cap belongs to the server, not to Locust.
+4. Point Locust at the deployment:
+
+   ```bash
+   COPILOT_TOKENS_FILE=tokens.json locust -f loadtest/locustfile.py \
+     --host https://agent-production-e0ed.up.railway.app \
+     --users 50 --spawn-rate 5 --run-time 5m --headless --csv results/deployed-l50
    ```
-   Raise `MAX_SESSIONS_PER_USER` on the Railway `agent` service for the run, and set it back to 3 afterwards.
 
 Expect the deployed p95 to be higher than the local figure by roughly one network round trip per FHIR call plus Railway's ingress, and MySQL to be the first thing to redline — it is on a shared instance with less CPU than the laptop these numbers came from.

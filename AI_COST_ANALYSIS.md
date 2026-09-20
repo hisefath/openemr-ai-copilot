@@ -6,13 +6,14 @@ All LLM numbers below are **measured** from the agent's own per-call logs (token
 
 | Item | Spend | Source |
 |---|---|---|
-| Anthropic API (live verification, 2 full eval runs, Bruno run, debugging, warm-ups) | **≈ $0.45** | Agent logs (`llm_cost_usd` per answer, warm-up lines); confirm against the Anthropic console, Usage |
+| Anthropic API — live verification, 4 full eval runs, Bruno runs, alert fault injection, debugging, warm-ups | **≈ $0.75** | Agent logs (`llm_cost_usd` per answer, warm-up lines) |
+| Anthropic API — load tests (L10 ≈ $0.43, L50 $2.11, smoke runs) | **≈ $2.60** | Agent logs over each run's window |
+| **Anthropic API total** | **≈ $3.35** | Confirm against the Anthropic console, Usage |
 | Coding assistant (Claude Code) | Covered by a Claude Max subscription | Not API-billed |
 | Langfuse | $0 | Free tier |
-| Railway (OpenEMR, MySQL, agent) | ≈ $5–10 so far | Hobby plan, usage-based |
-| Load tests | $0 | Scripted, not yet run |
+| Railway (OpenEMR, MySQL, agent, alerts cron) | ≈ $5–10 | Hobby plan, usage-based |
 
-The API spend is tiny because development ran **local-first**: OpenEMR, MySQL and the agent run on a laptop, and every expensive loop (fixtures, rules, verification, 217 offline tests) uses recorded OpenEMR output and a fake Claude. Real Claude is used only for live verification and evals.
+The API spend is small because development ran **local-first**: OpenEMR, MySQL and the agent run on a laptop, and every expensive loop (fixtures, rules, verification, 225 offline test cases) uses recorded OpenEMR output and a fake Claude. Real Claude is used only for live verification, evals and load tests — and the load tests are 78 % of the bill, which is the honest shape of it: **measuring the thing cost four times what building it did.**
 
 ## 2. Measured cost per question
 

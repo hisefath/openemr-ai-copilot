@@ -104,6 +104,13 @@ docker cp seed_edge_cases.php agentforge-local-openemr-1:/tmp/ && docker exec ag
 
 `seed_demo.php` prints the demo users' generated passwords once; store them outside the repository.
 
+**The demo schedule is dated to the day you seed it.** `seed_demo.php` books today's ten appointments, so the schedule scan (UC5) and the calendar are empty on any later day until you re-run it. It is idempotent — re-running only adds what today is missing — so refresh the demo before a walkthrough:
+
+```bash
+docker exec agentforge-local-openemr-1 su-exec apache php /tmp/seed_demo.php   # local
+railway ssh --service openemr 'su-exec apache php /tmp/seed_demo.php'          # deployed
+```
+
 OpenEMR settings the Co-Pilot needs (Admin → Config, or SQL over TLS): **Enable OpenEMR Standard FHIR REST API** (`rest_fhir_api=1`), **Site Address Override** = `http://localhost:8300` (`site_addr_oath`), **API Log Option = Minimal** (`api_log_option=1`). Then register the SMART app at `POST /oauth2/default/registration` (confidential client, launch URI `http://localhost:8000/smart/launch`, redirect URI `http://localhost:8000/smart/callback`) and enable it under Admin → System → API Clients.
 
 ### Tests
