@@ -38,3 +38,6 @@ copilot = ["static/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# tests/ has no __init__.py, so pytest would put tests/ on sys.path and not agent/. `python -m pytest` happens to
+# work because it adds the cwd; this makes bare `pytest` work too.
+pythonpath = ["."]

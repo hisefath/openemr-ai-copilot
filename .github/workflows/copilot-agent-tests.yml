@@ -30,6 +30,17 @@ jobs:
           LANGFUSE_TRACING_ENABLED: "false"
           LLM_WARMUP: "false"
         run: python -m pytest -q -p no:cacheprovider tests
+      - name: The agent installs and imports as a standalone distribution
+        # The claim in agent/README.md is that `pip install ./agent` gives a working agent with no reference to the
+        # OpenEMR fork around it. Asserted here so it stays true.
+        working-directory: .
+        run: |
+          python -m venv /tmp/shipcheck
+          /tmp/shipcheck/bin/pip install --quiet ./agent
+          /tmp/shipcheck/bin/python -c "import copilot.main, copilot.alerts; print('imports:', copilot.main.app.title)"
+          /tmp/shipcheck/bin/python -c "import importlib.resources as r; assert (r.files('copilot')/'static').is_dir(), 'static not packaged'"
+          test -x /tmp/shipcheck/bin/copilot-alerts
+
       - name: Eval cases are well-formed
         working-directory: .
         run: |
