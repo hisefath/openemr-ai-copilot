@@ -197,6 +197,7 @@ class Metric(str, Enum):
     fhir_forbidden = "fhir_forbidden"  # 403, counted apart from tool failures
     retry = "retry"                    # any repeated FHIR or Claude call
     verification = "verification"      # labelled with the Outcome
+    queue_wait = "queue_wait"          # a FHIR call that waited on the OpenEMR semaphore (queue depth > 0)
 
 
 # ponytail: in-process counters (single replica, §10); export to Prometheus/OTel metrics when replicas > 1.

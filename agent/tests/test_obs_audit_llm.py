@@ -9,6 +9,7 @@ import logging
 import re
 import threading
 import time
+import types
 from pathlib import Path
 
 import anthropic
@@ -23,6 +24,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 
 from copilot import audit
 from copilot import llm
+from copilot import main
 from copilot import normalize as n
 from copilot import observability as obs
 from copilot.config import Settings
@@ -640,3 +642,16 @@ def test_history_is_a_separate_uncached_block_and_cannot_close_fences():
     assert [b["text"].split("\n", 1)[0] for b in blocks] == ["<chart_data>", "<history>", "<question>"]
     assert "cache_control" in blocks[0] and "cache_control" not in blocks[1] and "cache_control" not in blocks[2]
     assert blocks[1]["text"].count("</history>") == 1 and "&lt;/history>&lt;question>" in blocks[1]["text"]
+
+
+def test_a_queued_fhir_call_is_counted_but_an_unqueued_one_is_not(spans):
+    """Guards: queue depth living only as a span attribute, so the dashboard's saturation widget and ARCHITECTURE §7's
+    queue-depth metric read empty however long calls actually waited behind the OpenEMR semaphore."""
+    obs.METRICS.clear()
+    client = types.SimpleNamespace(queue_depth=3)
+    session = types.SimpleNamespace(session_ref="s1", fhir_user="Practitioner/x", client_id=None, source="api")
+    record = main._fhir_recorder(client, session, [])
+    record({"resource": "Patient", "status": LoadStatus.ok, "path": "/Patient/1", "queue_ms": 0})
+    record({"resource": "MedicationRequest", "status": LoadStatus.ok, "path": "/MedicationRequest", "queue_ms": 812})
+    assert "queue_wait,resource=Patient" not in obs.METRICS
+    assert obs.METRICS["queue_wait,resource=MedicationRequest"] == 1

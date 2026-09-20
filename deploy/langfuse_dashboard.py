@@ -36,8 +36,8 @@ WIDGETS = [
      [{"measure": "latency", "agg": "p50"}, {"measure": "latency", "agg": "p95"}], [], [name_is("message")], 0, 4, 6, 6),
     ("Answers, errors and tool failures", "BAR_TIME_SERIES", COUNT, [{"field": "name"}],
      [names("metric.verification", "metric.error", "metric.tool_failure")], 6, 4, 6, 6),
-    ("FHIR calls, failures, retries, tools", "HORIZONTAL_BAR", COUNT, [{"field": "name"}],
-     [names("metric.fhir_call", "metric.tool_failure", "metric.fhir_forbidden", "metric.retry",
+    ("FHIR calls, failures, retries, queue waits, tools", "HORIZONTAL_BAR", COUNT, [{"field": "name"}],
+     [names("metric.fhir_call", "metric.tool_failure", "metric.fhir_forbidden", "metric.retry", "metric.queue_wait",
             "tool.get_lab_history", "tool.get_encounters")], 0, 10, 6, 6),
     ("Claude tokens", "LINE_TIME_SERIES",
      [{"measure": "inputTokens", "agg": "sum"}, {"measure": "outputTokens", "agg": "sum"}], [], [name_is("claude")],
@@ -47,6 +47,10 @@ WIDGETS = [
     ("Verification: fail (fallback)", "NUMBER", COUNT, [], [name_is("metric.verification"), outcome("fail")], 6, 16, 2, 4),
     ("Refused", "NUMBER", COUNT, [], [name_is("metric.verification"), outcome("refused")], 8, 16, 2, 4),
     ("Clarify", "NUMBER", COUNT, [], [name_is("metric.verification"), outcome("clarify")], 10, 16, 2, 4),
+    # Queue depth (ARCHITECTURE §7): charted as the number of FHIR calls that had to wait on the OpenEMR semaphore,
+    # because a count is what the widget API can aggregate and a rising share is the signal worth watching.
+    ("FHIR calls that queued", "NUMBER", COUNT, [], [name_is("metric.queue_wait")], 0, 20, 3, 4),
+    ("FHIR calls that queued, over time", "LINE_TIME_SERIES", COUNT, [], [name_is("metric.queue_wait")], 3, 20, 9, 4),
 ]
 
 

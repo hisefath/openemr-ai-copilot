@@ -210,6 +210,10 @@ def _fhir_recorder(client: fhir.FhirClient, session: Session, sink: List[AuditEv
         if e.get("retried"):
             obs.count(obs.Metric.retry, kind="fhir")
         obs.set_queue_depth(client.queue_depth)
+        # Queue depth as a countable event, not only a span attribute: the dashboard can chart "calls that had to
+        # wait" alongside the other counts, and a rising share is the saturation signal ARCHITECTURE §7 asks for.
+        if (e.get("queue_ms") or 0) > 0:
+            obs.count(obs.Metric.queue_wait, resource=e["resource"])
         log.info("fhir", extra={k: e.get(k) for k in ("method", "resource", "path", "http_status", "count", "ms", "queue_ms", "retried")}
                  | {"status": status.value})
         sink.append(_event(AuditEventType.fhir_read, session, patient_id=e.get("audit_patient_id"), fhir_path=e["path"],
