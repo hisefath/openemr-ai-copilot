@@ -1,6 +1,6 @@
 # LOAD_TEST.md — Load tests and performance baselines
 
-**Status: scripted, not yet run.** Runs spend Anthropic credits and load the shared demo OpenEMR, so they run only when explicitly scheduled. Results tables below are filled in when they do.
+**Status: run on 2026-09-20 against the local stack** (same images, same verified-TLS topology and the same agent build as the Railway deployment). Runs spend Anthropic credits and load a shared OpenEMR, so they are scheduled, not automated. The deployed-target run and why it needs a browser login are in [Running it against the deployed agent](#running-it-against-the-deployed-agent).
 
 ## What we're testing
 
@@ -19,64 +19,105 @@ Defined in [`loadtest/locustfile.py`](loadtest/locustfile.py).
 
 | Run | Users | Spawn rate | Duration |
 |---|---|---|---|
-| L10 | 10 | 2/s | 10 min |
-| L50 | 50 | 5/s | 10 min |
+| L10 | 10 | 2/s | 5 min |
+| L50 | 50 | 5/s | 5 min |
+
+Five minutes rather than ten: with 20–60 s think time a 5-minute run already puts 77 and 374 requests through the agent, which is past the point where p95 stops moving, and it halves the LLM spend (the runs below cost about $0.43 and $2.11 of Anthropic credit).
 
 ## Setup
 
 1. **Tokens:** one OAuth access token per virtual user, from synthetic demo users (see README, "Demo users"). Tokens last 1 hour, so each run stays under 50 minutes. Save as a JSON file outside the repo and point `COPILOT_TOKENS_FILE` at it.
 2. **Agent:** `ALLOW_API_SESSIONS=true` and `EVAL_PATIENT_IDS` listing the synthetic patients used.
 3. **Budget check:** estimate the run's LLM cost first: questions ≈ users × (duration ÷ average think time) × 2.5; cost ≈ questions × measured cost per answer (from Langfuse). Confirm it fits the remaining prepaid Anthropic balance.
-4. **Run:** `locust -f loadtest/locustfile.py --host https://<agent> --users 10 --spawn-rate 2 --run-time 10m --headless --csv loadtest/results/l10`
+4. **Session cap:** the agent allows 3 live sessions per user (the product default, `MAX_SESSIONS_PER_USER`). Every virtual user here launches off the same demo account, so a run must raise it or the store evicts sessions and Locust records 401s that no real physician would ever see. `run_local.sh` raises it for the run only; the deployment is never changed.
+5. **Run it:** `sh loadtest/run_local.sh <users> <spawn rate> <duration> <label>`, which rebuilds the agent with the raised cap, mints a token **immediately** before the run (tokens last an hour, and an expired one turns every session create into a 403 — an earlier run was lost to exactly that), aborts unless a session create returns 200, samples container CPU and memory alongside, and writes the Locust CSVs. Against a remote target: `locust -f loadtest/locustfile.py --host https://<agent> --users 10 --spawn-rate 2 --run-time 5m --headless --csv results/l10`.
 
 ## What gets recorded
 
 - **From Locust:** p50/p95/p99 latency, requests/s, failures per endpoint. Fallback answers count as failures (same definition as ALERTS.md).
 - **From Langfuse** (same time window): FHIR time vs Claude time per request, retries, queue depth on the OpenEMR semaphore, verification outcomes, tokens and cost.
-- **From Railway metrics** for `openemr`, `MySQL` and `agent`: CPU and memory at idle (5 min before), during L10, during L50.
+- **From `docker stats`**, sampled every 10 s for `agent`, `openemr` and `mysql`: CPU and memory at idle (5 min before), during L10, during L50. Raw samples are in `<results>/<label>-stats.csv` (written outside the repository, since the same directory holds a token file).
+- **From the agent's own structured logs** (one `answer` line per question, correlation id included): outcome, verification result, tokens and cost per answer.
 
 ## Results
 
+Local stack on an 8-core Apple Silicon laptop, 5.8 GiB to Docker: MySQL 9.4 with `--require-secure-transport=ON`, OpenEMR 8.5.0, the agent built from this repository — the same three images and the same verified-TLS topology as the Railway deployment, without Railway's network hop. Claude Haiku 4.5 is live in the loop; nothing is stubbed.
+
 ### Baselines (idle)
+
+Five minutes with the stack up and no traffic.
 
 | Service | CPU | Memory |
 |---|---|---|
-| openemr | | |
-| MySQL | | |
-| agent | | |
+| agent | 0.1 % (3.5 % peak on a health poll) | 76 MiB |
+| openemr | 0.1 % | 247 MiB |
+| mysql | 0.2 % (2.9 % peak) | 772 MiB |
+
+Agent throughput at idle is zero by construction: it does no background work between questions except the 15-minute session sweep.
 
 ### L10 — 10 concurrent users
 
+77 requests in 5 min · **0 failures** · 0.26 req/s · ~68 answers, ~$0.43 of Anthropic credit.
+
 | Endpoint | p50 | p95 | p99 | Error rate | Throughput |
 |---|---|---|---|---|---|
-| brief | | | | | |
-| follow_up | | | | | |
-| schedule_scan | | | | | |
+| brief | 2 500 ms | 3 300 ms | 3 900 ms | 0 % | 0.14 req/s |
+| follow_up | 1 600 ms | 2 400 ms | 2 500 ms | 0 % | 0.08 req/s |
+| POST /api/sessions | 52 ms | 58 ms | 58 ms | 0 % | 0.03 req/s |
+| **Aggregated** | **2 000 ms** | **3 200 ms** | **3 900 ms** | **0 %** | 0.26 req/s |
 
 | Service | CPU peak | Memory peak |
 |---|---|---|
-| openemr | | |
-| MySQL | | |
-| agent | | |
+| agent | 6.4 % | 91 MiB |
+| openemr | 32.0 % | 279 MiB |
+| mysql | 56.6 % | 781 MiB |
 
-FHIR vs Claude time split: · LLM cost of the run: · Queue depth p95:
+`schedule_scan` did not run: the `MorningScan` user only starts when `SCHEDULE_TOKENS_FILE` is set, and a standalone schedule launch needs a token minted from a schedule (non-patient) context, which `run_local.sh` does not mint. The scan path is covered instead by eval cases S01–S04 and by `test_main.py`.
 
 ### L50 — 50 concurrent users
 
+374 requests in 5 min · **7 failures (1.9 %)** · 1.26 req/s · 333 answers, $2.11 of Anthropic credit.
+
 | Endpoint | p50 | p95 | p99 | Error rate | Throughput |
 |---|---|---|---|---|---|
-| brief | | | | | |
-| follow_up | | | | | |
-| schedule_scan | | | | | |
+| brief | 2 300 ms | 3 000 ms | 4 400 ms | 0.5 % | 0.64 req/s |
+| follow_up | 1 500 ms | 2 500 ms | 3 100 ms | 4.3 % | 0.47 req/s |
+| POST /api/sessions | 80 ms | 119 ms | 119 ms | 0 % | 0.15 req/s |
+| **Aggregated** | **2 000 ms** | **3 000 ms** | **3 700 ms** | **1.9 %** | 1.26 req/s |
 
 | Service | CPU peak | Memory peak |
 |---|---|---|
-| openemr | | |
-| MySQL | | |
-| agent | | |
+| agent | 6.2 % | 106 MiB |
+| openemr | 35.9 % | 293 MiB |
+| mysql | 82.9 % | 793 MiB |
 
-FHIR vs Claude time split: · LLM cost of the run: · Queue depth p95:
+Verification outcomes over the same window: **322 pass, 4 refused, 7 fallback.** Tokens: 849 921 in, 55 097 out — $0.0063 per answered question, which matches the per-question cost measured in [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md).
 
 ## Interpretation
 
-_To be written after the runs: where the bottleneck was, whether the 10 s p95 held, and what would change first (ARCHITECTURE §11)._
+**The p95 target held, with room to spare.** 3.2 s at 10 users and 3.0 s at 50, against a 10 s budget and a 9 s hard deadline. Going 5× on concurrency did not move p95 — it moved *throughput*, from 0.26 to 1.26 req/s, which is the shape you want: the system was latency-bound on a fixed per-question cost, not queueing.
+
+**AUDIT.md's prediction was half right.** It predicted OpenEMR would be the bottleneck. OpenEMR is indeed where the CPU went — MySQL peaked at 83 % of a core and OpenEMR at 36 %, against the agent's 6 % — but neither saturated, so the FHIR tier never became the limit at this scale. The per-question wall clock is dominated by the Claude call, not by FHIR: a brief (one Claude call over a full prefetched chart) runs ~800 ms slower than a follow-up (one Claude call over a warm session), and the prefetch that precedes a brief overlaps the session create rather than the question.
+
+**The 1.9 % error rate is a product outcome, not a capacity failure.** Every one of the 7 was a *fallback*: the model returned a plan with no renderable line (`output_tokens` as low as 18), so the server said it could not answer from the chart rather than inventing one. Five of the seven were "What changed since the last visit?" on synthetic patients with a single encounter — there is genuinely nothing to diff. Counting those as failures is deliberate (it is the same definition [ALERTS.md](ALERTS.md) alerts on) and it is the honest number, but it is the verifier working, not the system bending. No request timed out, no request 5xx'd, no session was lost.
+
+**Memory is flat.** The agent grew 76 → 106 MiB across a 5× load step and released it afterwards. Sessions are bounded (idle TTL, per-user cap, 6-turn history), so there is no growth term proportional to traffic.
+
+**What would give first, and what changes.** MySQL CPU is the steepest curve of the three and it is the one that is *already* 83 % of a core at 50 users — that is the next ceiling, and it is OpenEMR's synchronous audit writes and un-indexed FHIR queries (PERF-1, PERF-2, PERF-3), not anything in the agent. The first change is therefore not to scale the agent: it is to put a read replica or a cache in front of the FHIR reads. The agent's own first constraint is different and structural — sessions live in process memory, so a second replica cannot serve a session the first one opened. [ARCHITECTURE §11](ARCHITECTURE.md) moves the store to Redis, which is what unblocks horizontal scaling; nothing in these numbers says that is needed yet.
+
+## Running it against the deployed agent
+
+The numbers above are from the local stack. Reproducing them against `https://agent-production-e0ed.up.railway.app` needs one thing this harness cannot produce on its own: **a real OAuth access token from the deployed OpenEMR.**
+
+That is a deliberate control, not an oversight. [`deploy/local/mint_token.php`](deploy/local/mint_token.php) mints tokens without a browser login, and it refuses to run unless `site_addr_oath` is `http://localhost` — so the shortcut that makes local load testing cheap cannot be pointed at a public deployment. Getting a token from the deployed instance means the real authorization-code + PKCE flow, which means a human logging in.
+
+To run it:
+
+1. Run the `1 · authorize` and `2 · token` requests in the [Bruno collection](api-collection/) against the deployed OpenEMR, signing in as the demo physician. Copy the `access_token`.
+2. Write `tokens.json` outside the repository: `[{"access_token": "<token>", "patient_id": "<demo patient uuid>"}, …]`, one entry per patient you want covered.
+3. ```
+   COPILOT_TOKENS_FILE=tokens.json MAX_SESSIONS_PER_USER=150    locust -f loadtest/locustfile.py --host https://agent-production-e0ed.up.railway.app           --users 50 --spawn-rate 5 --run-time 5m --headless --csv results/deployed-l50
+   ```
+   Raise `MAX_SESSIONS_PER_USER` on the Railway `agent` service for the run, and set it back to 3 afterwards.
+
+Expect the deployed p95 to be higher than the local figure by roughly one network round trip per FHIR call plus Railway's ingress, and MySQL to be the first thing to redline — it is on a shared instance with less CPU than the laptop these numbers came from.

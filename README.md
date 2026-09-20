@@ -19,7 +19,7 @@ A SMART on FHIR app that gives a primary care physician a **verified, cited brie
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The design, its trust boundaries, verification strategy, failure modes, API contract and tradeoffs |
 | [KEY_METRICS.md](KEY_METRICS.md) | The six numbers that show the product works, and why |
 | [ALERTS.md](ALERTS.md) | Three alerts and their on-call responses |
-| [LOAD_TEST.md](LOAD_TEST.md) | Load test scenarios and baselines (scripted; results pending) |
+| [LOAD_TEST.md](LOAD_TEST.md) | Load tests at 10 and 50 concurrent physicians: p50/p95/p99, error rate, CPU and memory baselines, and where the next ceiling is |
 | [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md) | Measured development spend, cost per question, and monthly projections at 100 / 1K / 10K / 100K users with the architecture changes each tier needs |
 | [TESTING.md](TESTING.md) | What is tested at which tier, and which test machinery is this project's versus OpenEMR's |
 | [evals/](evals/) | 32 live eval cases (boundary, safety, adversarial, conversation, schedule) and their [latest results](evals/results/) |

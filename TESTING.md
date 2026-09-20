@@ -80,7 +80,7 @@ in [ALERTS.md](ALERTS.md) has been fired this way on purpose.
 ```bash
 cd agent && pip install -r requirements.txt -r requirements-dev.txt && python -m pytest tests   # tier 1
 python evals/run_evals.py                                                                      # tier 2 (needs the local stack + a key)
-sh tools/loadtest/run_local.sh 10 2 5m l10                                                     # tier 3
+sh loadtest/run_local.sh 10 2 5m l10                                                     # tier 3
 python evals/fault_injection.py A1                                                             # tier 4
 ```
 
