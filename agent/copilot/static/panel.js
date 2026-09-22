@@ -47,6 +47,7 @@
     const OUTCOMES = {
         pass: 'Sources verified', pass_with_removals: 'Sources verified, items removed',
         fail: 'Fallback: no AI selection', refused: 'Refused', clarify: 'Needs clarification',
+        partial: 'Partial: time limit reached',
     };
 
     let expired = false;

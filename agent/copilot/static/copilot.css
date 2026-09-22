@@ -147,7 +147,7 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .badge { border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.74rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
 .outcome-pass, .outcome-pass_with_removals { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
 .outcome-fail, .outcome-refused { color: var(--high-fg); background: var(--high-bg); border-color: transparent; }
-.outcome-clarify { color: var(--med-fg); background: var(--med-bg); border-color: transparent; }
+.outcome-clarify, .outcome-partial { color: var(--med-fg); background: var(--med-bg); border-color: transparent; }
 .notice { background: var(--sunk); border-radius: var(--r-sm); padding: 0.6rem 0.9rem; margin: 0.6rem 0; color: var(--muted); }
 .line { padding: 0.6rem 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
 .line:first-child { border-top: 0; }
