@@ -152,6 +152,51 @@ python evals/run_evals.py            # all 32 cases, writes evals/results/<times
 python evals/fault_injection.py A2   # fires one ALERTS.md alert on purpose, then evaluates it
 ```
 
+### Week 2 — the eval gate
+
+**Run the gate with one command.** No network, no API key, no OpenEMR container:
+
+```bash
+cd agent && pip install -r requirements.txt -r requirements-dev.txt && cd ..
+python evals/w2/run_gate.py
+```
+
+It scores every case in [`evals/w2/cases/`](evals/w2/cases/) against boolean rubrics, compares each category to the
+committed baseline in `evals/w2/baseline.json`, and **exits non-zero** if any category drops below its floor or
+regresses more than five points. Failure output names the category, the baseline, the new rate and which cases
+flipped.
+
+Two commands prove the gate is real rather than decorative:
+
+```bash
+python evals/w2/run_gate.py --selftest   # passes ONLY if the known-bad case fails
+python evals/w2/test_replay.py           # the keying rule: an edited prompt must be a hard failure
+```
+
+`--selftest` runs one deliberately-broken case from [`evals/w2/selftest/`](evals/w2/selftest/) whose only job is to
+go red, and inverts the verdict. If it ever reports that case *passing*, the gate cannot detect anything and every
+green build above it is meaningless. It is excluded from the scored set so it cannot redden the main build.
+
+**How it stays deterministic.** Cases replay recorded model responses at the `app.state.llm` seam that
+[`agent/tests/`](agent/tests/) already uses — see [`evals/w2/replay.py`](evals/w2/replay.py). At n=10 a 90% pass
+rate carries ±19 points, so a 5% regression threshold measured against live model runs would be measuring noise.
+Recordings are keyed on a hash of the **model-facing surface** (model id, system prompt, tool definitions, output
+schema), and a cache miss is a hard case failure — never a live call, never a silent pass. So editing a prompt
+turns the build red on its own, which is the regression the Week 2 grading specifically introduces.
+
+Everything downstream of the model — parsing, schema validation, verification, rendering, the rules engine, the
+scorer — still executes live in CI and is covered natively.
+
+**Blocking.** [`.gitlab-ci.yml`](.gitlab-ci.yml) runs all three commands on the GitLab remote. To block locally
+before a push as well:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Week 1 baseline behaviour (structured-record briefings, the 32 live eval cases above) is unchanged; Week 2 adds
+document ingestion and this gate on top of it.
+
 Alerts: `agent/copilot/alerts.py` evaluates the three [ALERTS.md](ALERTS.md) alerts from Langfuse (`python -m copilot.alerts`, or `python -m copilot.alerts <from> <to>` to replay a window).
 
 OpenEMR itself carries the same look: [`deploy/openemr/`](deploy/openemr/) builds the deployed EHR image from a digest-pinned 8.5.0 base plus one stylesheet loaded through OpenEMR's supported `custom/assets/custom.yaml` hook, on top of OpenEMR's own dark theme (`css_header = style_dark.css`). No shipped theme file is edited; deleting the overlay restores the stock theme. Both the EHR and the panel are fixed dark, independent of the clinician's OS setting.

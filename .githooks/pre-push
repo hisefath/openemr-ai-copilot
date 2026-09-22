@@ -1,0 +1,31 @@
+#!/bin/sh
+# Blocks a push whose Week 2 eval gate is red. Enable with: git config core.hooksPath .githooks
+#
+# A local hook can be skipped (`git push --no-verify`), which is why it is the *third* line of defence, behind the
+# README's one command and .gitlab-ci.yml. It catches a mistake early; it is not the gate of record.
+root=$(cd "$(dirname "$0")/.." && pwd)   # not `git rev-parse`: the hook should not need git on PATH
+
+# The agent needs Python 3.11+ (copilot/fhir.py uses BaseExceptionGroup) with its deps importable. Pick the first
+# interpreter that satisfies both rather than assuming `python3` is the right one — on macOS it often is not.
+PY=""
+for candidate in python3 python python3.12 python3.11; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c "import anthropic, fastapi" >/dev/null 2>&1; then
+        PY="$candidate"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    echo "pre-push: no interpreter with the agent deps; skipping the eval gate."
+    echo "          cd agent && pip install -r requirements.txt -r requirements-dev.txt   (needs Python 3.11+)"
+    exit 0
+fi
+
+echo "pre-push: running the Week 2 eval gate with $PY…"
+if ! "$PY" "$root/evals/w2/run_gate.py" --selftest >/dev/null 2>&1; then
+    echo "pre-push: BLOCKED — the gate's self-test did not go red, so the gate cannot detect anything."
+    exit 1
+fi
+if ! "$PY" "$root/evals/w2/run_gate.py"; then
+    echo "pre-push: BLOCKED — the eval gate failed. Fix it, or re-baseline deliberately."
+    exit 1
+fi
+echo "pre-push: gate passed."
