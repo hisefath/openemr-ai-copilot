@@ -221,7 +221,8 @@ So intake-form facts have a supported home. Lab values do not — an upstream li
 ### `attach_and_extract(patient_id, file_path, doc_type)`
 
 1. Upload the source to OpenEMR. This is the round-trip the PRD requires, and the document id becomes the citation
-   anchor. Idempotent on content hash, so re-running never creates duplicates.
+   anchor. Idempotent on content hash, so re-running never creates duplicates. **Verified end to end on 2026-09-22
+   — see the spike results below**; the call is not the obvious one.
 2. Render pages and collect word coordinates — PDF text layer where present, Tesseract OCR where not.
 3. Call Claude with page images, constrained to `LabReport` or `IntakeForm`.
 4. Locate every extracted value against the word coordinates.
@@ -232,6 +233,36 @@ Returns strict-schema JSON. Never writes a chart record.
 **Ingestion needs its own budget.** `config.py:32` sets a 9-second question budget, which cannot contain a vision
 call over a multi-page scan. `attach_and_extract` runs on its own longer deadline as an upload operation; the
 9-second budget continues to govern the question path, which reads already-extracted facts.
+
+### Verified: what the upload call actually looks like
+
+Run against the local stack on 2026-09-22 with a write-scoped token. Three things an earlier draft had wrong or
+had left to be discovered mid-build:
+
+**The category path is underscore-separated and carries a throwaway first segment.**
+`POST /api/patient/1/document?path=Categories/Lab_Report` — not `?path=Lab%20Report`.
+`DocumentService::isValidPath` does `unset($docPathParts[0])`, so a single-segment path validates *vacuously*, and
+`getLastIdOfPath` matches against `replace(LOWER(name), ' ', '')`, so a segment containing a literal space never
+resolves. The failure is **silent**: the upload returns `200 true`, the file lands on disk, the row lands in
+`documents` — and `list_id` stays `0`, no `categories_to_documents` row is written, and the document is
+unreachable through the API forever. Confirmed both ways: id 986 with a space (orphaned), id 987 with an
+underscore (categorised, `category_id = 2`).
+
+**The POST returns a bare `true`, never an id.** `DocumentService::insertAtPath` returns `bool` (line 159). So the
+citation anchor is *not* available from the write. It comes from a follow-up
+`GET /api/patient/:pid/document?path=Categories/Lab_Report`, which returns:
+
+```json
+[{"filename":"lab.pdf","hash":"5c06112e…386a3","id":987,"mimetype":"application/pdf","docdate":"2026-09-22"}]
+```
+
+That response carries **both the document id and a content hash** — so §3's content-hash idempotency does not need
+the agent to compute or store its own digest: OpenEMR already keys one, and re-ingest can be detected by matching
+`hash` before uploading at all.
+
+**pid versus puuid is real, and splits exactly where §6 predicted.** `document` takes the **numeric pid**;
+`allergy`, `medication` and `medical_problem` take the **puuid**. The agent's session holds a uuid, so
+`emr_write.py` owns that translation and it is the module's first responsibility, not an afterthought.
 
 ### Schemas
 
@@ -342,12 +373,23 @@ can write to the chart or outlive the visit."* Widening `_ALLOWED` is **deleting
 its test**, not editing a config. Note too that §3 step 1 uploads the document *before* any approval, so write
 scope is needed on the ingest path, not only the approval path.
 
-**What actually has to change.** `_ALLOWED` is keyed per `Kind` and today holds **only FHIR read scopes** —
-`user/Patient.rs`, `user/AllergyIntolerance.rs` and so on (`smart.py:22-26`). The four routes §3 needs are not FHIR
-at all: they live on OpenEMR's **standard REST API**, which is a different scope class. So this is not "add two
-write scopes" — it is the `api:oemr` API grant *plus* per-resource write scopes for document, allergy, medication
-and medical_problem, added to the `patient` and `api` kinds. The exact scope strings this fork accepts are
-confirmed in the 90-minute spike below before any of it is written down as fact.
+**What actually has to change — measured, not assumed.** `_ALLOWED` is keyed per `Kind` and today holds **only
+FHIR read scopes** — `user/Patient.rs`, `user/AllergyIntolerance.rs` and so on (`smart.py:22-26`). The four routes
+§3 needs are not FHIR at all: they live on OpenEMR's **standard REST API**, a different scope class entirely. So
+this is not "add two write scopes". The spike minted a token with the set below and exercised every route; these
+are the exact strings, from `src/RestControllers/OpenApi/OpenApiDefinitions.php`:
+
+```
+api:oemr                      # gate for the standard API as a whole
+user/document.crs             # POST /api/patient/:pid/document
+user/allergy.cruds            # POST /api/patient/:puuid/allergy
+user/medical_problem.cruds    # POST /api/patient/:puuid/medical_problem
+user/medication.cruds         # POST /api/patient/:puuid/medication
+```
+
+Note the notation: OpenEMR encodes permissions as a **`cruds` suffix** — c=create, r=read, u=update, d=delete,
+s=search. **There is no `.write` scope**, which is what an earlier draft assumed. Five scopes across two kinds
+(`patient` and `api`), not two.
 
 **Decision: widen the physician's own session, by the minimum set above.** The deciding argument is attribution.
 If the physician's token writes, OpenEMR's audit log says the physician did it and OpenEMR's role ACL still
@@ -361,12 +403,25 @@ copy ungated and writes derived clinical facts only on approval** — the docume
 any review, and the copy-is-not-a-claim argument is what licenses it. **The model cannot write at all.** A comment
 at `smart.py:196` records why the allowlist widened.
 
-**Do this first, timeboxed to 90 minutes.** Two things will bite. The document route is gated on OpenEMR's **role
-ACL** as well as OAuth scope — `request_authorization_check($request, "patients", "docs", ['write','addonly'])` —
-so demo users need `patients/docs` write granted in the admin UI on **both** local and Railway. And document and
-medication routes take the **numeric pid** while allergy and problem take the **puuid**; the session holds a uuid
-and nothing translates today. If it is not working at 90 minutes, fall back to the agent's own store and document
-it exactly as the lab-write limitation is documented.
+**Spike result (2026-09-22, local stack).** Both write paths work end to end:
+
+| Check | Result |
+|---|---|
+| Document upload, write-scoped token | **`200`**, file on disk, row in `documents` |
+| Allergy write with provenance | **`200 {"data":{"id":845,"uuid":"a2cf5432-…"}}`** |
+| `comments` round-trip (the §6 demo beat) | **Survives intact** — `"doc=42 page=1 field=allergies[0]"` reads back verbatim |
+| Role ACL `patients`/`docs` write for `dr_chen` | **Already granted locally** — no admin-UI change needed here |
+
+The role ACL is still a separate gate from OAuth scope —
+`request_authorization_check($request, "patients", "docs", ['write','addonly'])` — and it is **not yet verified on
+Railway**, which is the one remaining unknown on this path. That check is a deploy-time action, not a code change.
+
+The spike also confirms the corrected demo beat: `comments` round-trips through the **standard API** read, which is
+why §6 reads back with `GET /api/patient/:puuid/allergy` rather than the FHIR route that never projects the field.
+
+Minting for the spike is `deploy/local/mint_write_token.php` — a sibling of `mint_token.php`, deliberately not an
+edit to it, because that script backs the read-only load test and eval tooling and nothing needing a read-only
+token should start handing out write scopes.
 
 ---
 
