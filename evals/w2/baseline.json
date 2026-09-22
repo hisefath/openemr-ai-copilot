@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-09-22T21:59:13Z",
+  "n": 3,
+  "rates": {
+    "schema_valid": 1.0,
+    "citation_present": 1.0,
+    "safe_refusal": 1.0,
+    "no_phi_in_logs": 1.0,
+    "value_located": null,
+    "factually_consistent": null
+  },
+  "applicable": {
+    "schema_valid": 3,
+    "citation_present": 2,
+    "safe_refusal": 1,
+    "no_phi_in_logs": 3,
+    "value_located": 0,
+    "factually_consistent": 0
+  }
+}
