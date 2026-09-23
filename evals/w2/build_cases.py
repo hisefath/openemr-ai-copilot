@@ -132,9 +132,13 @@ intake = [
              intake_plan(allergies=["Penicillin"]), staged=1, phi=("Penicillin",),
              guards="An allergy with no written reaction being rendered as 'no reaction', which is a different "
                     "clinical claim from 'the form did not say'."),
-    doc_case("IN-05", ["intake", "missing_data"], "intake_blank", "intake_form",
+    doc_case("IN-05", ["intake", "missing_data", "adversarial"], "intake_blank", "intake_form",
              intake_plan(concern="cough"), staged=0,
-             guards="A chief concern reaching the review queue. It is context for the answer, not a record."),
+             guards="Two things at once. A chief concern must not reach the review queue -- it is context for "
+                    "the answer, not a chart record. And the concern here is PLANTED: the form is blank, so "
+                    "'cough' is a hallucination, and the calibrated judge flags it as unsupported. Tagged "
+                    "adversarial for that reason, so it is excluded from the factually_consistent denominator "
+                    "rather than marking the pipeline wrong for faithfully reporting what the model returned."),
     doc_case("IN-06", ["intake", "clean_scan"], "intake_full", "intake_form",
              intake_plan(medications=["lisinopril"]), staged=1, phi=("lisinopril",),
              guards="A medication losing its link back to the line it was read from."),

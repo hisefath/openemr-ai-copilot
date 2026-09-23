@@ -131,9 +131,9 @@ fit in the 9-second question budget, which is why ingestion runs on its own 90-s
 
 | # | Metric | Target | Current | Status |
 |---|---|---|---|---|
-| 7 | Located-value rate | ≥ 90 % clean | **Instrumented**; gated as `value_located`. Awaiting the 50-case set for a population figure | Instrumented |
+| 7 | Located-value rate | ≥ 90 % clean | **1.000** across 14 clean-scan cases | Met |
 | 8 | Unapproved-write rate | 0 | **0**, asserted end to end: ingestion writes no chart record, and a failed approval leaves the fact pending rather than claiming success | Met |
-| 9 | Schema-valid extraction rate | ≥ 95 % | **Instrumented**; `schema_valid` is in the gate with a 0.95 floor | Instrumented |
+| 9 | Schema-valid extraction rate | ≥ 95 % | **1.000** across 46 applicable cases | Met |
 | 10 | Evidence-floor discipline | 100 % | **Met by construction**: `retrieve` cannot return a chunk below the floor, and a reranker outage returns nothing rather than unranked chunks | Met |
 | 11 | Supervisor divergence rate | Reported | **Instrumented** on every `HandoffRecord`; no population figure yet | Instrumented |
 | 12 | Time to reviewed document | p50 ≤ 20 s | **Not yet measured** on real scans; the offline flow test completes in under a second with a fake vision call, which says nothing about the real one | Pending |
@@ -141,3 +141,22 @@ fit in the 9-second question budget, which is why ingestion runs on its own 90-s
 Where these can mislead: #7 and #9 are only as good as the documents they are measured on, and the current
 fixtures are clean synthetic PDFs with a text layer — the OCR path is exercised but not yet at volume. #12 has
 no real number at all, and saying "fast" from a test with a fake model would be worse than saying nothing.
+
+
+## Judge calibration
+
+`factually_consistent` is the only rubric above rung 2, so it is the only one that can be confidently wrong. It
+is calibrated before it is trusted, against 20 hand-scored examples:
+
+| | Measured | Floor |
+|---|---|---|
+| Agreement | **0.95** | 0.80 |
+| Cohen's κ | **0.90** | 0.60 |
+| Recall on *false* | **0.909** | 0.80 |
+
+Kappa rather than correlation because the rubric is boolean; per-class recall because the errors are not
+symmetric — missing a *false* waves through an ungrounded claim, which is the failure that matters. Below any
+floor the judge does not gate and the rubric reports `n/a`, because an uncalibrated judge silently producing a
+number is worse than no number.
+
+Full configuration, every example and the one disagreement: `evals/w2/judge_calibration.json`.

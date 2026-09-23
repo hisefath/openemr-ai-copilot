@@ -161,7 +161,12 @@ def _run_case(case: dict, T, main, fhir, httpx, TestClient, recordings: Optional
                 return {"error": f"HTTP {r.status_code}"}
             turns.append({"body": r.json(), "expect": turn.get("expect", {})})
         audit = json.dumps([e.model_dump() for e in main.app.state.audit.events], default=str)
-        return {"turns": turns, "audit": audit, "ingest": ingest, "emr": state}
+        page_text = ""
+        if doc:
+            from copilot.documents import read_pages
+            pages = read_pages(fixtures.get(doc["fixture"]))
+            page_text = " ".join(w.text for words in pages.words for w in words)
+        return {"turns": turns, "audit": audit, "ingest": ingest, "emr": state, "page_text": page_text}
 
 
 # --------------------------------------------------------------------------------------- the rubrics
@@ -287,8 +292,61 @@ def _evidence_grounded(obs: dict, case: dict) -> Optional[bool]:
 
 
 def _factually_consistent(obs: dict, case: dict) -> Optional[bool]:
-    """Judge rung. Inapplicable until the calibrated judge lands (evals/w2/judge_calibration.json)."""
-    return None
+    """The judge rung, replayed. Every extracted value must be supported by the page it came from.
+
+    Verdicts are recorded by tools/record_judge_verdicts.py and keyed on a hash of (system prompt, source,
+    claim), so editing the judge's prompt is a cache MISS and a miss fails the case — the same rule as the model
+    recordings. The gate needs no key.
+
+    Two exclusions, both deliberate:
+
+    - The judge only gates if it is CALIBRATED as trustworthy. An uncalibrated judge silently scoring the gate
+      is worse than no judge, because the number looks like evidence.
+    - Adversarial cases are excluded from the denominator. Their claims are *planted* to be unsupported — an
+      invented potassium value, an injection string, a concern on a blank form — so scoring them here would
+      mark the pipeline wrong for correctly reproducing what the model returned. The judge does flag every one
+      of them, which is the evidence that the rung works; it is reported, not gated.
+    """
+    import judge as judge_mod
+
+    ing = obs.get("ingest")
+    if ing is None or not ing.get("extraction") or not judge_mod.is_trusted():
+        return None
+    if "adversarial" in case.get("tags", []):
+        return None
+
+    verdicts = _judge_verdicts()
+    page = obs.get("page_text") or ""
+    claims = [c["quote_or_value"] for c in _doc_citations(ing["extraction"])]
+    if not claims or not page:
+        return None
+    for claim in claims:
+        v = verdicts.get(_judge_key(page, claim))
+        if v is None:
+            raise RuntimeError(f"no judge verdict for {claim!r} — re-record with tools/record_judge_verdicts.py")
+        if v.get("verdict") is not True:
+            return False
+    return True
+
+
+_VERDICT_CACHE: Dict[str, Any] = {}
+
+
+def _judge_verdicts() -> dict:
+    if not _VERDICT_CACHE:
+        path = HERE / "judge_verdicts.json"
+        _VERDICT_CACHE.update(json.loads(path.read_text())["verdicts"] if path.exists() else {})
+    return _VERDICT_CACHE
+
+
+def _judge_key(source: str, claim: str) -> str:
+    import hashlib
+    import judge as judge_mod
+
+    h = hashlib.sha256(judge_mod.SYSTEM.encode())
+    h.update(b"\x00" + source.encode())
+    h.update(b"\x00" + claim.encode())
+    return h.hexdigest()[:16]
 
 
 RUBRICS = {
@@ -318,8 +376,18 @@ def score(cases: list[dict], recordings: Optional[Path] = None) -> dict:
             continue
         results = {}
         for name, fn in RUBRICS.items():
-            v = fn(obs, case)
+            try:
+                v = fn(obs, case)
+            except Exception as e:
+                # A rubric that cannot be evaluated fails ITS CASE, and does not take the run down with it.
+                # The judge raises here on a cache miss, which must behave like every other miss in this gate:
+                # a hard failure that names what to do, never a crash and never a silent pass.
+                per_case[case["id"]] = {"error": f"{name}: {e}"}
+                results = None
+                break
             results[name] = v
+        if results is None:
+            continue
             if v is not None:
                 tallies[name][1] += 1
                 tallies[name][0] += int(v)

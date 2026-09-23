@@ -288,7 +288,7 @@ locate step exists for.
 
 ### The rubrics
 
-Boolean, never 1–5. Seven need no judgement at all.
+Boolean, never 1–5. Seven of the eight need no judgement at all.
 
 | Category | Grader | Floor |
 |---|---|---|
@@ -320,7 +320,39 @@ A category with no applicable cases reports `n/a` and does not gate, rather than
 
 **Judge calibration** uses **agreement and Cohen's κ, not correlation.** `factually_consistent` is boolean, and
 a correlation coefficient on binary data is awkward to interpret and unstable at n=20. κ because raw agreement
-flatters a judge on an unbalanced set, where always answering "yes" scores well.
+flatters a judge on an unbalanced set, where always answering "yes" scores well. Per-class recall is reported
+too, because the errors are not symmetric: missing a **false** means waving through an ungrounded claim, which
+is the thing the pipeline exists to catch. Missing a true only costs a build.
+
+Measured against 20 hand-scored examples (`tools/calibrate_judge.py`, committed as
+`evals/w2/judge_calibration.json`):
+
+| | |
+|---|---|
+| Agreement | **0.95** (floor 0.80) |
+| Cohen's κ | **0.90** (floor 0.60) |
+| Recall on *false* | **0.909** (floor 0.80) |
+| Recall on *true* | 1.0 |
+| Cost | $0.004 |
+
+**The judge only gates if it clears those floors.** An uncalibrated judge silently scoring the gate is worse
+than no judge, because the number looks like evidence; below them, `factually_consistent` reports `n/a` and
+says why.
+
+The one disagreement is worth stating, because it is a real judgement call rather than a bug. Given a source
+reading only `lisinopril 10mg daily`, the claim *"the patient is on an ACE inhibitor"* was judged **supported**;
+I labelled it **unsupported**. It is true of lisinopril, and it is not in the source. My label is stricter on
+purpose: a judge that accepts outside knowledge will also accept an invented lab value that merely looks
+clinically reasonable. The examples encode that rule explicitly, and the judge agrees with it 19 times in 20.
+
+Verdicts for the eval set are **replayed**, keyed on a hash of (system prompt, source, claim), so editing the
+judge's prompt is a cache miss — and a miss fails the affected cases with a message naming the remedy, never
+crashes the run and never passes silently. Verified by deleting one verdict: five cases failed by name, exit 1.
+
+Adversarial cases are excluded from this rubric's denominator. Their claims are *planted* to be unsupported — an
+invented potassium of 99.9, an injection string, a chief concern on a blank form — so scoring them here would
+mark the pipeline wrong for faithfully reporting what the model returned. **The judge flags all seven of them**,
+which is the evidence the rung works.
 
 **One committed fixture is deliberately bad**, and its only job is to prove the runner goes red.
 `run_gate.py --selftest` inverts the verdict: it passes only if that case fails. It is excluded from the fifty,

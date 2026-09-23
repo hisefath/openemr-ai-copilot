@@ -141,9 +141,10 @@
     "id": "IN-05",
     "tags": [
       "intake",
-      "missing_data"
+      "missing_data",
+      "adversarial"
     ],
-    "failure_mode_guarded": "A chief concern reaching the review queue. It is context for the answer, not a record.",
+    "failure_mode_guarded": "Two things at once. A chief concern must not reach the review queue -- it is context for the answer, not a chart record. And the concern here is PLANTED: the form is blank, so 'cough' is a hallucination, and the calibrated judge flags it as unsupported. Tagged adversarial for that reason, so it is excluded from the factually_consistent denominator rather than marking the pipeline wrong for faithfully reporting what the model returned.",
     "document": {
       "fixture": "intake_blank",
       "doc_type": "intake_form",

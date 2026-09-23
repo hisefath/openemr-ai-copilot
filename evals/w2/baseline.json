@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-09-23T17:21:13Z",
+  "recorded_at": "2026-09-23T18:21:33Z",
   "n": 55,
   "rates": {
     "schema_valid": 1.0,
@@ -9,7 +9,7 @@
     "no_unapproved_write": 1.0,
     "evidence_grounded": 1.0,
     "value_located": 1.0,
-    "factually_consistent": null
+    "factually_consistent": 1.0
   },
   "applicable": {
     "schema_valid": 46,
@@ -19,6 +19,6 @@
     "no_unapproved_write": 30,
     "evidence_grounded": 9,
     "value_located": 14,
-    "factually_consistent": 0
+    "factually_consistent": 19
   }
 }
