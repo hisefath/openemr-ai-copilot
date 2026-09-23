@@ -193,10 +193,31 @@ def test_patient_scope_is_rejected():
     assert reason(tokens=token_response(scope=ALLOWLIST + " patient/Observation.rs")) == "scope_patient"
 
 
-def test_extra_write_scope_is_rejected():
-    """Guards: a session holding a token that can write to the chart or outlive the visit."""
+def test_only_the_named_week_two_write_scopes_are_allowed():
+    """Guards: the widening of this allowlist becoming general.
+
+    Week 2 deliberately admits six standard-API scopes so a clinician can attach a document and approve a fact
+    under their own identity — see smart.py for the attribution argument. Everything else a token might carry
+    is still refused, and an UNNAMED write scope is refused even though write scopes now exist in principle."""
     assert reason(tokens=token_response(scope=ALLOWLIST + " user/MedicationRequest.cruds")) == "scope_not_allowed"
     assert reason(intro=introspection(scope=ALLOWLIST + " offline_access")) == "scope_not_allowed"
+    assert reason(tokens=token_response(scope=ALLOWLIST + " user/procedure.cruds")) == "scope_not_allowed"
+
+
+def test_the_week_two_write_scopes_are_accepted_on_a_clinician_session():
+    """Guards: the reverse — a correctly-scoped clinician launch being rejected, which would make document
+    attachment impossible in the deployed app."""
+    granted = ALLOWLIST + " " + " ".join(smart.WRITE_SCOPES)
+    grant = smart.validate_launch_token(token_response(scope=granted), introspection(scope=granted),
+                                        "patient", NOW)
+    assert set(smart.WRITE_SCOPES) <= set(grant.scopes)
+
+
+def test_a_schedule_session_still_cannot_write():
+    """Guards: the widening leaking to the standalone schedule scan, which has no document to attach and no
+    clinician in front of it to approve anything."""
+    assert "api:oemr" not in smart.SCHEDULE_SCOPES
+    assert not set(smart.WRITE_SCOPES) & set(smart.SCHEDULE_SCOPES)
 
 
 def test_refresh_token_in_response_is_rejected():

@@ -21,9 +21,26 @@ from .sessions import Session, SessionStore
 
 SCOPES = ("openid", "fhirUser", "launch", "user/Patient.rs", "user/AllergyIntolerance.rs", "user/MedicationRequest.rs",
           "user/Condition.rs", "user/Observation.rs", "user/Encounter.rs", "user/Appointment.rs")
-SCHEDULE_SCOPES = tuple(s for s in SCOPES if s != "launch")   # standalone: bound to the user only
-API_SCOPES = SCOPES + ("launch/patient",)                     # grader token path: Bruno standalone launch with launch/patient
-_ALLOWED = {"patient": frozenset(SCOPES), "schedule": frozenset(SCHEDULE_SCOPES), "api": frozenset(API_SCOPES)}
+# Week 2. Storing a document and writing an approved fact need OpenEMR's STANDARD REST API, which is a different
+# scope class from FHIR — api:oemr gates the API as a whole and the rest are per-resource. Note the `cruds`
+# suffix (c=create r=read u=update d=delete s=search): there is no `.write` scope. user/patient.crus is here
+# only to resolve the numeric pid the document route needs; the document routes take pid while every other
+# write route takes puuid.
+#
+# This widens a Week 1 invariant and it is a deliberate trade. The argument that decided it is ATTRIBUTION: when
+# the physician's own token writes, OpenEMR's audit log records that the physician did it and OpenEMR's role ACL
+# still applies, which is what makes "a clinician approved this" mean anything. A service account writing
+# approved facts would record that the robot did it. The narrower claim that remains true: the clinician's
+# session writes a faithful copy ungated and writes derived clinical facts only on approval — and the model
+# cannot write at all, because only the approval endpoint reaches these routes.
+WRITE_SCOPES = ("api:oemr", "user/document.crs", "user/allergy.cruds", "user/medical_problem.cruds",
+                "user/medication.cruds", "user/patient.crus")
+PATIENT_SCOPES = SCOPES + WRITE_SCOPES
+SCHEDULE_SCOPES = tuple(s for s in SCOPES if s != "launch")   # standalone: bound to the user only, and READ-ONLY:
+                                                              # a schedule scan has no document to attach
+API_SCOPES = PATIENT_SCOPES + ("launch/patient",)             # grader token path: Bruno standalone launch with launch/patient
+_ALLOWED = {"patient": frozenset(PATIENT_SCOPES), "schedule": frozenset(SCHEDULE_SCOPES),
+            "api": frozenset(API_SCOPES)}
 
 CALLBACK_PATH = "/smart/callback"   # the one registered redirect URI (§2 client registration); both flows return here
 STATE_COOKIE = "__Host-copilot-state"
