@@ -152,7 +152,7 @@ agent:deploy:
     # service that boots healthy WITHOUT tesseract-ocr and returns "could not be located" for every scanned page.
     # Copying the shippable files into a bare directory is what makes the Dockerfile the root. See agent/README.md.
     - mkdir -p /tmp/ctx
-    - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/copilot /tmp/ctx/
+    - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot /tmp/ctx/
     - cd /tmp/ctx && railway up --service agent --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
 
 agent:verify:
@@ -192,6 +192,28 @@ agent:verify:
           sys.exit(1)
       print("deploy verified")
       PY
+
+# ---------------------------------------------------------------- alerts
+#
+# The `alerts` cron service runs THE SAME IMAGE as the agent with a different start command (`python alerts.py`,
+# configured on the service). It is not a separate app, so it shares the agent's path filter — and it must
+# redeploy with the agent or it silently keeps evaluating production against whatever code it was built from.
+# It ran a 2026-09-17 image for six days that way, which is why it is wired here rather than left to a human.
+
+alerts:deploy:
+  stage: deploy
+  image: node:22-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *agent_paths
+  environment:
+    name: production/alerts
+  before_script:
+    - npm install -g @railway/cli
+  script:
+    - mkdir -p /tmp/ctx-alerts
+    - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot /tmp/ctx-alerts/
+    - cd /tmp/ctx-alerts && railway up --service alerts --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
 
 # ---------------------------------------------------------------- openemr
 #

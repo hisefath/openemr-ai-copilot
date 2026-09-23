@@ -81,6 +81,9 @@ def test_firing_alert_exits_zero_and_logs_result(monkeypatch, capsys):
     assert alerts.main() == 0
     out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert out["alert"] is True and [r["alert"] for r in out["results"] if r["firing"]] == ["A2_error_rate"]
+    # The run stays green on purpose, so the line has to carry the fact that the page went nowhere. Without this,
+    # a monitor with no webhook configured is indistinguishable in the log from one that paged someone.
+    assert out["delivery"] == "NOT_CONFIGURED"
 
 
 def test_fetch_waits_out_rate_limit():

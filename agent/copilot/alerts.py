@@ -95,8 +95,13 @@ def main() -> int:
     results = evaluate(questions, scans, error_events, fhir_calls, tool_failures)
     window = {"from": start.isoformat(timespec="seconds"), "to": end.isoformat(timespec="seconds")}
     firing = [r for r in results if r["firing"]]
-    print(json.dumps({"alert": bool(firing), "environment": ENVIRONMENT, "window": window, "results": results}), flush=True)  # before the webhook
     webhook = os.environ.get("ALERT_WEBHOOK_URL")
+    # A firing alert with no webhook configured reaches nobody. The exit code deliberately stays 0 (see
+    # tests/test_alerts.py: a red cron run must mean the MONITOR broke, not that an alert fired), so the fact is
+    # recorded in the line instead — otherwise "alert": true and a green run look identical to a delivered page.
+    delivery = "configured" if webhook else "NOT_CONFIGURED"
+    print(json.dumps({"alert": bool(firing), "environment": ENVIRONMENT, "window": window,
+                      "delivery": delivery, "results": results}), flush=True)  # before the webhook
     for r in firing if webhook else []:
         text = (f":rotating_light: {r['alert']} = {r['value']} (threshold {r['threshold']}) over {WINDOW_MIN} min, "
                 f"{r['requests']} requests. Runbook: ALERTS.md")

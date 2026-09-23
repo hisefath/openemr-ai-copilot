@@ -12,5 +12,10 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY copilot ./copilot
+# The Railway `alerts` cron service runs `python alerts.py`, a start command configured ON THE SERVICE and so
+# outside this repo. Without this line a rebuilt image starts, cannot find the file, and the cron goes red every
+# five minutes — the alerts service ran a 2026-09-17 image for six days precisely because nobody could redeploy
+# it safely. Drop this line once that start command becomes `python -m copilot.alerts`; see agent/alerts.py.
+COPY alerts.py .
 # No access log: OAuth callbacks carry code/state in the query string (ARCHITECTURE §2); main.py logs path-only lines.
 CMD ["sh", "-c", "exec uvicorn copilot.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log --proxy-headers --forwarded-allow-ips='*'"]

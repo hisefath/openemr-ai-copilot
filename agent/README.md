@@ -82,7 +82,7 @@ Three things have to line up, and getting any of them wrong costs a failed build
 So deploy from a staging copy outside the repository:
 
 ```bash
-D=$(mktemp -d) && cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/copilot "$D"/ \
+D=$(mktemp -d) && cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot "$D"/ \
   && (cd "$D" && railway up --project 32296f23-43e5-4ea0-b0a2-7b65b74484be --service agent \
        --environment production --detach)
 ```
@@ -96,3 +96,8 @@ curl -s -D - -o /dev/null -G https://agent-production-e0ed.up.railway.app/smart/
   --data-urlencode "iss=$ISS" --data-urlencode "aud=$ISS" --data-urlencode "launch=probe-$RANDOM" \
   | grep -io "api%3Aoemr" && echo "current build" || echo "STALE BUILD"
 ```
+
+The **`alerts` cron service runs this same image** with a different start command (`python alerts.py`, set on the
+service). Swap `--service agent` for `--service alerts` to deploy it. It must be redeployed alongside the agent:
+it evaluates production against whatever code it was built from, and nothing about a stale one looks wrong — it
+keeps printing healthy-looking JSON on schedule. Wired into `alerts:deploy` in `.gitlab-ci.yml` for that reason.
