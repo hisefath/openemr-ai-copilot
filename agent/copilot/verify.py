@@ -2,7 +2,7 @@
 Pure functions; fails closed: any exception yields the non-AI fallback."""
 import re
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -49,6 +49,8 @@ class VerifiedAnswer(BaseModel):
     denied_source_ids: List[str] = Field(default_factory=list,
                                          description="Cited ids not in this session's index: one `denied` audit row each")
     verifier_error: bool = Field(False, description="The verifier raised; count as an error metric (FM-08)")
+    handoffs: List[Any] = Field(default_factory=list, description="Week 2 routing record for this turn")
+    evidence: List[Any] = Field(default_factory=list, description="Week 2 guideline evidence above the floor")
 
     def response(self, correlation_id: str) -> MessageResponse:
         return MessageResponse(correlation_id=correlation_id,

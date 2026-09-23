@@ -207,3 +207,90 @@ def test_an_extraction_failure_still_leaves_the_document_stored_and_citable(clie
     body = upload(client, handle).json()
     assert body["document"]["document_id"] == "988"
     assert body["extraction"] is None and body["reason"] == "unparseable" and body["staged"] == 0
+
+
+# ---------------------------------------------------------------- the graph, through the API
+
+class StubRetriever:
+    """Stands in for the Voyage-backed retriever so the flow runs offline."""
+    def __init__(self, *results):
+        self.results, self.queries = list(results), []
+
+    def search(self, q, **kw):
+        self.queries.append(q)
+        return self.results.pop(0) if self.results else []
+
+
+def _chunk():
+    from copilot.schemas import Citation, EvidenceChunk, SourceType
+    return EvidenceChunk(
+        chunk_id="pen-01", text="Amoxicillin is a penicillin-class antibiotic.", title="Penicillin",
+        section="Cross-reactivity", score=0.9,
+        citation=Citation(source_type=SourceType.guideline, source_id="pen-01",
+                          page_or_section="Penicillin — Cross-reactivity", field_or_chunk_id="pen-01",
+                          quote_or_value="Amoxicillin is a penicillin-class antibiotic."))
+
+
+def test_a_question_returns_the_routing_record(client):
+    """Guards: THE named PRD pitfall — a supervisor nobody outside Langfuse can inspect. Handoffs are part of
+    the API contract, not only a trace."""
+    handle = T.open_session(client)
+    main.app.state.retriever = StubRetriever([_chunk()])
+    main.app.state.llm = T.FakeClaude(T.plan_message(
+        {"intent": "brief", "items": [{"kind": "record", "source_id": T.PENICILLIN, "section": "safety"}]}))
+    body = T.ask(client, handle, "Is it safe to start amoxicillin?").json()
+
+    assert body["handoffs"], "no routing record returned"
+    hop = body["handoffs"][0]
+    assert hop["to_node"] in {"extract", "retrieve", "answer", "refuse"}
+    assert hop["reason"] and hop["correlation_id"] and hop["elapsed_ms"] >= 0
+
+
+def test_the_routing_record_carries_no_prose(client):
+    """Guards: COMP-3 — model prose reaching logs or the browser through a free-text reason."""
+    from copilot.schemas import RoutingReason
+    handle = T.open_session(client)
+    main.app.state.retriever = StubRetriever([])
+    main.app.state.llm = T.FakeClaude(T.plan_message({"intent": "brief", "items": []}))
+    body = T.ask(client, handle, "Brief me.").json()
+    codes = {r.value for r in RoutingReason}
+    assert all(h["reason"] in codes for h in body["handoffs"])
+
+
+def test_retrieved_evidence_comes_back_labelled_guideline(client):
+    """Guards: the merge the PRD forbids — guideline text rendered as a fact about this patient."""
+    handle = T.open_session(client)
+    main.app.state.retriever = StubRetriever([_chunk()])
+    main.app.state.llm = T.FakeClaude(T.plan_message({"intent": "brief", "items": []}))
+    body = T.ask(client, handle, "Is it safe to start amoxicillin?").json()
+    assert body["evidence"], "no evidence returned"
+    assert all(e["citation"]["source_type"] == "guideline" for e in body["evidence"])
+
+
+def test_a_broken_retriever_does_not_take_the_answer_down(client):
+    """Guards: the whole point of wrapping the graph. Week 1's answer worked without any of this, and a Week 2
+    failure must degrade the answer rather than remove it."""
+    class Broken:
+        def search(self, q, **kw):
+            raise RuntimeError("voyage down")
+    handle = T.open_session(client)
+    main.app.state.retriever = Broken()
+    main.app.state.llm = T.FakeClaude(T.plan_message(
+        {"intent": "brief", "items": [{"kind": "record", "source_id": T.PENICILLIN, "section": "safety"}]}))
+    r = T.ask(client, handle, "Brief me.")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["outcome"] in ("pass", "pass_with_removals") and body["sections"]
+    assert body["evidence"] == []
+
+
+def test_an_uploaded_document_is_visible_to_the_next_question(client):
+    """Guards: a document ingested this session being invisible to the supervisor, so it can never route to
+    extraction or accept a document citation."""
+    handle = T.open_session(client)
+    upload(client, handle)
+    assert main.app.state.session_docs, "ingestion did not record the document for this session"
+    main.app.state.retriever = StubRetriever([])
+    main.app.state.llm = T.FakeClaude(T.plan_message({"intent": "brief", "items": []}))
+    body = T.ask(client, handle, "What did the form say?").json()
+    assert body["handoffs"]

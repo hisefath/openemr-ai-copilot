@@ -95,6 +95,7 @@ async def lifespan(app: FastAPI):
     app.state.emr_write = emr_write.EmrWriteClient(app.state.http, settings.fhir_base, settings.openemr_concurrency)
     app.state.staging = staging.MemoryStagingStore()
     app.state.pages_cache: Dict[str, Any] = {}      # document_id -> rendered pages, for the citation overlay
+    app.state.session_docs: Dict[str, Any] = {}     # session_ref -> the document this session ingested
     app.state.session_resolver = _session            # w2_routes reuses this session check, never its own
     app.state.retriever = _build_retriever(settings)
     if settings.audit_db_host:
@@ -451,6 +452,41 @@ async def ask(request: Request, body: MessageRequest, authorization: Optional[st
         return await _answer(request, s, session, body)
 
 
+async def _run_w2_graph(request: Request, session: Session, question: str, deadline: Deadline) -> dict:
+    """Route this turn through the Week 2 graph and return what it gathered.
+
+    The graph owns the Week 2 concerns — is there an unread document, does this question need guideline
+    evidence, is it in scope — and hands back. The answer itself is still produced by Week 1's plan-and-verify
+    path, which is the part that has been proven for a week; the graph does not get to render anything.
+
+    Wrapped so it cannot take the answer down with it. A failure here means no evidence and no handoff record,
+    which degrades the answer; an exception would have meant no answer at all, and the Week 1 path works
+    perfectly well without any of this.
+    """
+    state = request.app.state
+    held = (getattr(state, "session_docs", {}) or {}).get(session.session_ref) or {}
+    try:
+        from . import graph as graph_mod
+
+        deps = graph_mod.Deps(state.llm, state.settings, getattr(state, "retriever", None))
+        gs: graph_mod.GraphState = {
+            "session_ref": session.session_ref, "patient_id": session.patient_id, "question": question,
+            "document": held.get("document"), "pages": held.get("pages"), "extracted": held.get("extracted"),
+            "evidence": [], "handoffs": [], "deadline": deadline,
+            "correlation_id": obs.correlation_id.get(),
+            "prior_turn": {"answered": True} if session.history else None,
+        }
+        decision = await graph_mod.supervisor(gs, deps)
+        gs.update(decision)
+        if decision.get("_route") == "retrieve":
+            gs.update(await graph_mod.evidence_retriever(gs, deps))
+        return {"evidence": gs.get("evidence") or [], "handoffs": gs.get("handoffs") or [],
+                "extracted": held.get("extracted")}
+    except Exception as e:
+        log.warning("w2_graph_unavailable", extra={"error": obs.error_code(e)})
+        return {"evidence": [], "handoffs": [], "extracted": held.get("extracted")}
+
+
 async def _answer(request: Request, s: Settings, session: Session, body: MessageRequest) -> MessageResponse:
     deadline = Deadline(s.question_deadline_s)
     cid = obs.correlation_id.get()
@@ -488,7 +524,10 @@ async def _answer(request: Request, s: Settings, session: Session, body: Message
         plan = _unalias(plan, aliases)
         if plan is not None:
             ctx = await _fetch_trend_history(request, session, ctx, plan, deadline, rows, today)
-        answer = verify.verify_and_render(plan, ctx, body.question, body.selected_source_id, flags, today, now)
+        w2 = await _run_w2_graph(request, session, body.question, deadline)
+        answer = verify.verify_and_render(plan, ctx, body.question, body.selected_source_id, flags, today, now,
+                                          w2_index=render.evidence_index(w2["extracted"], w2["evidence"]))
+        answer = answer.model_copy(update={"handoffs": w2["handoffs"], "evidence": w2["evidence"]})
 
         if plan is None:
             obs.count(obs.Metric.error, kind=f"llm_{meta.reason or 'unknown'}")

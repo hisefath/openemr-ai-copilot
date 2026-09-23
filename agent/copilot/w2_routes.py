@@ -87,6 +87,9 @@ async def attach_and_extract(request: Request, file: UploadFile = File(...), doc
     staged = app.staging.put(facts)
 
     app.pages_cache[doc.document_id] = pages     # so the overlay can serve the page it drew boxes on
+    # A later question in this session needs to know a document exists and what was read from it, so the
+    # supervisor can route and so its citations are accepted by the verifier.
+    app.session_docs[session.session_ref] = {"document": doc, "extracted": extracted, "pages": pages}
     return {
         "document": doc.model_dump(),
         "extraction": extracted.model_dump(),

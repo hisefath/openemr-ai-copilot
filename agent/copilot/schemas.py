@@ -242,6 +242,15 @@ class MessageResponse(BaseModel):
     withheld_count: int = 0
     notice: Optional[str] = Field(None, description="Fixed server text: refusal, fallback reason, unchecked drugs")
     data_as_of: str
+    handoffs: List["HandoffRecord"] = Field(
+        default_factory=list,
+        description="Every routing decision this turn, with its reason code and what a deterministic policy "
+                    "would have chosen. Returned, not just traced: the PRD's named pitfall is a supervisor "
+                    "nobody outside Langfuse can inspect.")
+    evidence: List["EvidenceChunk"] = Field(
+        default_factory=list,
+        description="Guideline chunks that cleared the rerank floor. Always labelled guideline, never merged "
+                    "with the patient's own record.")
 
 
 class SessionCreateRequest(BaseModel):
