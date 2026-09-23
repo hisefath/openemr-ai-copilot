@@ -359,6 +359,27 @@ which is the evidence the rung works.
 because a permanently-failing case inside the suite would either redden the build forever or have to be silently
 skipped — and a silently skipped case is exactly what that fixture exists to disprove.
 
+### The holdout, and results
+
+Ten cases at `evals/w2/holdout/`, run with `--holdout`, **never tuned against** — different documents, different
+values, different question phrasings from anything in `cases/`, because a holdout that reuses the tuned fixtures
+measures memorisation rather than quality. It is reported against the floors only, never compared to the gated
+baseline, since it is a different and smaller set.
+
+**Current holdout result: 1.000 across all eight rubrics, 10 cases.**
+
+Every run writes `evals/w2/results/<timestamp>.json` with per-case rubric outcomes. A rate with no run behind it
+is an assertion, not a result.
+
+### Coverage collapse fails the build
+
+A late addition, prompted by causing it. A scoring bug left every rubric reporting `n/a` with zero applicable
+cases — and the gate said **"gate passed"**, because nothing was below a floor. Nothing was above one either.
+
+So the gate now fails when a category that had applicable cases in the baseline has none, and when no category
+has a single applicable case at all. *A suite that blocks nothing is a dashboard*, and a suite measuring nothing
+is the same thing wearing a green tick.
+
 **Blocking, in the order a grader reaches it:** one command in the README, `.gitlab-ci.yml` on the graded remote,
 and a tracked `.githooks/pre-push` (third, because `--no-verify` skips it — and it also blocks if the self-test
 stops going red, since a gate that cannot fail is not a gate).

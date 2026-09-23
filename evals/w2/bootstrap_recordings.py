@@ -72,7 +72,9 @@ def main() -> int:
         os.environ.pop(k, None)
 
     table = {"$PENICILLIN": T.PENICILLIN, "$AMOXICILLIN": T.AMOXICILLIN, "$PID": T.PID}
-    targets = [(HERE / "cases", HERE / "recordings"), (HERE / "selftest", HERE / "selftest" / "recordings")]
+    targets = [(HERE / "cases", HERE / "recordings"),
+               (HERE / "selftest", HERE / "selftest" / "recordings"),
+               (HERE / "holdout", HERE / "holdout" / "recordings")]
     written = skipped = failed = 0
 
     for case_dir, rec_dir in targets:

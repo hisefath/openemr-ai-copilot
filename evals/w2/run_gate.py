@@ -32,6 +32,8 @@ sys.path.insert(0, str(REPO / "agent" / "tests"))
 BASELINE = HERE / "baseline.json"
 CASES = HERE / "cases"
 SELFTEST = HERE / "selftest"
+HOLDOUT = HERE / "holdout"
+RESULTS = HERE / "results"
 
 # Floors. Safety-shaped checks sit at 1.00 because "mostly did not leak PHI" is not a passing grade.
 GATE = {
@@ -374,7 +376,7 @@ def score(cases: list[dict], recordings: Optional[Path] = None) -> dict:
             # before the document flow exists — breach a floor they were never measured against.
             per_case[case["id"]] = {"error": obs["error"]}
             continue
-        results = {}
+        results, broke = {}, None
         for name, fn in RUBRICS.items():
             try:
                 v = fn(obs, case)
@@ -382,12 +384,13 @@ def score(cases: list[dict], recordings: Optional[Path] = None) -> dict:
                 # A rubric that cannot be evaluated fails ITS CASE, and does not take the run down with it.
                 # The judge raises here on a cache miss, which must behave like every other miss in this gate:
                 # a hard failure that names what to do, never a crash and never a silent pass.
-                per_case[case["id"]] = {"error": f"{name}: {e}"}
-                results = None
+                broke = f"{name}: {e}"
                 break
             results[name] = v
-        if results is None:
+        if broke is not None:
+            per_case[case["id"]] = {"error": broke}
             continue
+        for name, v in results.items():
             if v is not None:
                 tallies[name][1] += 1
                 tallies[name][0] += int(v)
@@ -404,6 +407,20 @@ def check(result: dict, baseline: Optional[dict]) -> list[str]:
     if result.get("broken"):
         for cid, err in result["broken"].items():
             fails.append(f"{cid}: could not run — {err}")
+
+    # A category that used to have cases and now has none is a regression the rates cannot show: every rubric
+    # reports n/a, nothing is below a floor, and the gate would pass while measuring nothing. Found by causing
+    # exactly that with a scoring bug — the gate said "passed" with every category at n=0. A suite that blocks
+    # nothing is a dashboard, so coverage collapse fails the build in its own right.
+    for name in GATE:
+        was = (baseline or {}).get("applicable", {}).get(name)
+        now = result["applicable"][name]
+        if was and not now:
+            fails.append(f"{name}: had {was} applicable cases in the baseline and has none now — "
+                         f"the category stopped being measured")
+    if baseline and not any(result["applicable"].values()):
+        fails.append("no category has a single applicable case: the suite is measuring nothing")
+
     for name, floor in GATE.items():
         rate, n = result["rates"][name], result["applicable"][name]
         if rate is None:
@@ -450,10 +467,27 @@ def report(result: dict, fails: list[str], baseline: Optional[dict]) -> None:
     print()
 
 
+def _write_results(result: dict, fails: List[str], *, holdout: bool = False) -> None:
+    """Commit a readable record of every run. The PRD asks for results alongside the cases and the rubrics, and
+    a rate with no run behind it is an assertion rather than a result."""
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    out = RESULTS / f"{'holdout-' if holdout else ''}{stamp}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({
+        "recorded_at": stamp, "holdout": holdout, "n": result["n"],
+        "rates": result["rates"], "applicable": result["applicable"],
+        "failures": fails, "passed": not fails,
+        "cases": {cid: {k: v for k, v in r.items()} for cid, r in sorted(result["cases"].items())},
+    }, indent=2) + "\n")
+    print(f"  results: {out.relative_to(REPO)}\n")
+
+
 def main_cli() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--selftest", action="store_true", help="prove the runner can fail; passes only if the bad case fails")
     ap.add_argument("--rebaseline", action="store_true", help="rewrite baseline.json from this run")
+    ap.add_argument("--holdout", action="store_true",
+                    help="run the holdout set instead: never tuned against, reported rather than gated")
     args = ap.parse_args()
 
     if args.selftest:
@@ -475,12 +509,21 @@ def main_cli() -> int:
     if not cases:
         print(f"no cases in {CASES} — nothing to gate")
         return 1
+    if args.holdout:
+        cases = load_cases(HOLDOUT)
+        if not cases:
+            print(f"no cases in {HOLDOUT}")
+            return 1
+        print(f"\n  HOLDOUT: {len(cases)} cases never tuned against. Reported, not gated.")
     baseline = json.loads(BASELINE.read_text()) if BASELINE.exists() else None
     if baseline is None:
         print("\n  no baseline.json yet — floors apply, regression check skipped")
-    result = score(cases)
-    fails = check(result, baseline)
+    result = score(cases, recordings=(HOLDOUT / "recordings") if args.holdout else None)
+    # The holdout is a different, smaller set, so its coverage and rates are not comparable to the gated
+    # baseline. It is reported against the floors only — which is the point of a holdout: a number nobody tuned.
+    fails = check(result, None if args.holdout else baseline)
     report(result, fails, baseline)
+    _write_results(result, fails, holdout=args.holdout)
 
     if args.rebaseline:
         BASELINE.write_text(json.dumps(
