@@ -64,12 +64,18 @@ class Word:
         return BBox(page=self.page, x0=self.x0, y0=self.top, x1=self.x1, y1=self.bottom)
 
 
+# Separators that cling to a word in a list — "Penicillin, Sulfa" extracts as the word "Penicillin," — and are
+# typography rather than content. Deliberately NOT the full stop: stripping it would change "0.9" and "<0.01",
+# where the character carries meaning.
+_EDGE_PUNCT = ",;:"
+
+
 def _norm(s: str) -> str:
     """Compare on content, not typography: collapse whitespace, drop case, and normalise the characters OCR and
     PDF extraction routinely disagree about."""
     s = s.replace("–", "-").replace("—", "-").replace("−", "-")   # en/em dash, minus sign
     s = s.replace(" ", " ").replace("’", "'")
-    return re.sub(r"\s+", "", s).strip().lower()
+    return re.sub(r"\s+", "", s).strip(_EDGE_PUNCT).strip().lower()
 
 
 def _same_row(a: Word, b: Word) -> bool:

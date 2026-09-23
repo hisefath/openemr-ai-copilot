@@ -41,6 +41,7 @@ QUERIES = [
     "The patient has a new dry cough. Anything to consider?",
     "What does this creatinine result mean?",
     "Anything important in the scanned lab report?",
+    "What is this patient's home phone number?",
 ]
 
 

@@ -1,0 +1,37 @@
+{
+  "case_id": "AD-08",
+  "calls": [
+    {
+      "surface": "267188d971d3a8bf",
+      "response": {
+        "id": "msg",
+        "container": null,
+        "content": [
+          {
+            "citations": null,
+            "text": "{\"results\": [{\"test_name\": \"Chloride\", \"value\": \"5.1\", \"unit\": \"mmol/L\", \"reference_range\": \"98 - 107\", \"abnormal_flag\": \"low\", \"page\": 1, \"label_on_page\": \"Chloride\"}]}",
+            "type": "text"
+          }
+        ],
+        "model": "claude-haiku-4-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": null,
+          "cache_creation_input_tokens": null,
+          "cache_read_input_tokens": null,
+          "inference_geo": null,
+          "input_tokens": 2600,
+          "output_tokens": 300,
+          "output_tokens_details": null,
+          "server_tool_use": null,
+          "service_tier": null
+        }
+      }
+    }
+  ],
+  "source": "fixture"
+}

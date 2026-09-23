@@ -1,0 +1,37 @@
+{
+  "case_id": "QA-03",
+  "calls": [
+    {
+      "surface": "da266dee2be1609f",
+      "response": {
+        "id": "msg",
+        "container": null,
+        "content": [
+          {
+            "citations": null,
+            "text": "{\"intent\": \"brief\", \"items\": [{\"kind\": \"record\", \"source_id\": \"AllergyIntolerance/a2c41b8b-1eb1-4559-b6c8-4e81d0a508a3\", \"section\": \"safety\"}]}",
+            "type": "text"
+          }
+        ],
+        "model": "claude-haiku-4-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": null,
+          "cache_creation_input_tokens": null,
+          "cache_read_input_tokens": null,
+          "inference_geo": null,
+          "input_tokens": 1200,
+          "output_tokens": 90,
+          "output_tokens_details": null,
+          "server_tool_use": null,
+          "service_tier": null
+        }
+      }
+    }
+  ],
+  "source": "fixture"
+}

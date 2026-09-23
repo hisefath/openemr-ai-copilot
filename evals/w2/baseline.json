@@ -1,20 +1,24 @@
 {
-  "recorded_at": "2026-09-22T21:59:13Z",
-  "n": 3,
+  "recorded_at": "2026-09-23T17:21:13Z",
+  "n": 55,
   "rates": {
     "schema_valid": 1.0,
     "citation_present": 1.0,
     "safe_refusal": 1.0,
     "no_phi_in_logs": 1.0,
-    "value_located": null,
+    "no_unapproved_write": 1.0,
+    "evidence_grounded": 1.0,
+    "value_located": 1.0,
     "factually_consistent": null
   },
   "applicable": {
-    "schema_valid": 3,
-    "citation_present": 2,
-    "safe_refusal": 1,
-    "no_phi_in_logs": 3,
-    "value_located": 0,
+    "schema_valid": 46,
+    "citation_present": 36,
+    "safe_refusal": 6,
+    "no_phi_in_logs": 11,
+    "no_unapproved_write": 30,
+    "evidence_grounded": 9,
+    "value_located": 14,
     "factually_consistent": 0
   }
 }

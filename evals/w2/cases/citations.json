@@ -1,0 +1,154 @@
+[
+  {
+    "id": "CT-01",
+    "tags": [
+      "golden",
+      "citations",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "A lab result rendered without machine-readable citation metadata.",
+    "document": {
+      "fixture": "lab_abnormal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.4",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Potassium"
+          },
+          {
+            "test_name": "Sodium",
+            "value": "139",
+            "unit": "mmol/L",
+            "reference_range": "135 - 145",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Sodium"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 2
+    }
+  },
+  {
+    "id": "CT-02",
+    "tags": [
+      "citations",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "One citation covering a whole form. A physician needs the line, not the document.",
+    "document": {
+      "fixture": "intake_full",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "allergies": [
+          {
+            "substance": "Penicillin",
+            "page": 1,
+            "label_on_page": "Allergies"
+          }
+        ],
+        "medications": [
+          {
+            "name": "lisinopril",
+            "page": 1,
+            "label_on_page": "Medications"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 2
+    },
+    "phi_markers": [
+      "Penicillin"
+    ]
+  },
+  {
+    "id": "CT-03",
+    "tags": [
+      "citations",
+      "degraded_scan"
+    ],
+    "failure_mode_guarded": "An unlocated citation being indistinguishable from a located one, which would let a guess render as evidence.",
+    "document": {
+      "fixture": "lab_degraded",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.1",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Potassium"
+          },
+          {
+            "test_name": "Creatinine",
+            "value": "0.9",
+            "unit": "mg/dL",
+            "reference_range": "0.9 - 1.3",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Creatinine"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 2
+    }
+  },
+  {
+    "id": "CT-04",
+    "tags": [
+      "citations",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "A citation losing the page number, so a box cannot be drawn on the right page.",
+    "document": {
+      "fixture": "lab_single",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.4",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Potassium"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    }
+  },
+  {
+    "id": "CT-05",
+    "tags": [
+      "citations"
+    ],
+    "failure_mode_guarded": "A citation emitted for a field that was never filled in.",
+    "document": {
+      "fixture": "intake_blank",
+      "doc_type": "intake_form",
+      "fixture_plan": {}
+    },
+    "expect": {
+      "staged": 0
+    }
+  }
+]

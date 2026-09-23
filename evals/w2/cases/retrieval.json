@@ -1,0 +1,111 @@
+[
+  {
+    "id": "RT-01",
+    "kind": "retrieval",
+    "tags": [
+      "golden",
+      "retrieval"
+    ],
+    "query": "Is it safe to start amoxicillin?",
+    "failure_mode_guarded": "The penicillin cross-reactivity guidance not being found for the headline question.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "pen-01"
+    }
+  },
+  {
+    "id": "RT-02",
+    "kind": "retrieval",
+    "tags": [
+      "golden",
+      "retrieval"
+    ],
+    "query": "Why might this patient's potassium be rising?",
+    "failure_mode_guarded": "The dense half failing: this query shares no keyword with the medication-interaction chunk it should find.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "k-03"
+    }
+  },
+  {
+    "id": "RT-03",
+    "kind": "retrieval",
+    "tags": [
+      "golden",
+      "retrieval"
+    ],
+    "query": "The patient has a new dry cough. Anything to consider?",
+    "failure_mode_guarded": "The ACE-inhibitor cough link being missed \u2014 again, no shared keywords.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "htn-03"
+    }
+  },
+  {
+    "id": "RT-04",
+    "kind": "retrieval",
+    "tags": [
+      "retrieval"
+    ],
+    "query": "Is this HbA1c due for a recheck?",
+    "failure_mode_guarded": "Monitoring-interval guidance not surfacing for a timing question.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "dm-02"
+    }
+  },
+  {
+    "id": "RT-05",
+    "kind": "retrieval",
+    "tags": [
+      "retrieval"
+    ],
+    "query": "What does this creatinine result mean?",
+    "failure_mode_guarded": "Interpretation guidance not surfacing for a result question.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "cr-01"
+    }
+  },
+  {
+    "id": "RT-06",
+    "kind": "retrieval",
+    "tags": [
+      "retrieval"
+    ],
+    "query": "What should I know about their blood pressure medication?",
+    "failure_mode_guarded": "A query phrased in lay terms failing where the chunk uses the drug class.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "htn-01"
+    }
+  },
+  {
+    "id": "RT-07",
+    "kind": "retrieval",
+    "tags": [
+      "retrieval"
+    ],
+    "query": "Anything important in the scanned lab report?",
+    "failure_mode_guarded": "The scanned-results guidance not surfacing for a document question.",
+    "expect": {
+      "min_score": 0.5,
+      "top_chunk": "doc-01"
+    }
+  },
+  {
+    "id": "RT-08",
+    "kind": "retrieval",
+    "tags": [
+      "golden",
+      "retrieval",
+      "missing_data"
+    ],
+    "query": "What changed since the last visit?",
+    "failure_mode_guarded": "THE floor doing its job: a question about the patient's own chart must retrieve NOTHING, not the nearest weakly-related guideline. At a 0.35 floor this returned a potassium reference range as evidence.",
+    "expect": {
+      "min_score": 0.5,
+      "evidence": "none"
+    }
+  }
+]

@@ -1,0 +1,212 @@
+[
+  {
+    "id": "IN-01",
+    "tags": [
+      "golden",
+      "intake",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "An intake form losing its allergy, or a chief concern being staged as a chart record.",
+    "document": {
+      "fixture": "intake_full",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "allergies": [
+          {
+            "substance": "Penicillin",
+            "page": 1,
+            "label_on_page": "Allergies"
+          }
+        ],
+        "medications": [
+          {
+            "name": "lisinopril",
+            "page": 1,
+            "label_on_page": "Medications"
+          }
+        ],
+        "chief_concern": {
+          "value": "persistent dry cough",
+          "page": 1,
+          "label_on_page": "Chief concern"
+        },
+        "family_history": [
+          {
+            "condition": "diabetes",
+            "page": 1,
+            "label_on_page": "Family history"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 2
+    },
+    "phi_markers": [
+      "Penicillin",
+      "lisinopril"
+    ]
+  },
+  {
+    "id": "IN-02",
+    "tags": [
+      "golden",
+      "intake",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "Multiple allergies or medications collapsing into one.",
+    "document": {
+      "fixture": "intake_multi",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "allergies": [
+          {
+            "substance": "Penicillin",
+            "page": 1,
+            "label_on_page": "Allergies"
+          },
+          {
+            "substance": "Sulfa",
+            "page": 1,
+            "label_on_page": "Allergies"
+          }
+        ],
+        "medications": [
+          {
+            "name": "lisinopril",
+            "page": 1,
+            "label_on_page": "Medications"
+          },
+          {
+            "name": "metformin",
+            "page": 1,
+            "label_on_page": "Medications"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 4
+    },
+    "phi_markers": [
+      "Penicillin",
+      "Sulfa"
+    ]
+  },
+  {
+    "id": "IN-03",
+    "tags": [
+      "golden",
+      "intake",
+      "missing_data"
+    ],
+    "failure_mode_guarded": "A half-filled form being completed by inference. A blank must stay blank.",
+    "document": {
+      "fixture": "intake_blank",
+      "doc_type": "intake_form",
+      "fixture_plan": {}
+    },
+    "expect": {
+      "staged": 0
+    }
+  },
+  {
+    "id": "IN-04",
+    "tags": [
+      "intake",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "An allergy with no written reaction being rendered as 'no reaction', which is a different clinical claim from 'the form did not say'.",
+    "document": {
+      "fixture": "intake_full",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "allergies": [
+          {
+            "substance": "Penicillin",
+            "page": 1,
+            "label_on_page": "Allergies"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    },
+    "phi_markers": [
+      "Penicillin"
+    ]
+  },
+  {
+    "id": "IN-05",
+    "tags": [
+      "intake",
+      "missing_data"
+    ],
+    "failure_mode_guarded": "A chief concern reaching the review queue. It is context for the answer, not a record.",
+    "document": {
+      "fixture": "intake_blank",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "chief_concern": {
+          "value": "cough",
+          "page": 1,
+          "label_on_page": "Chief concern"
+        }
+      }
+    },
+    "expect": {
+      "staged": 0
+    }
+  },
+  {
+    "id": "IN-06",
+    "tags": [
+      "intake",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "A medication losing its link back to the line it was read from.",
+    "document": {
+      "fixture": "intake_full",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "medications": [
+          {
+            "name": "lisinopril",
+            "page": 1,
+            "label_on_page": "Medications"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    },
+    "phi_markers": [
+      "lisinopril"
+    ]
+  },
+  {
+    "id": "IN-07",
+    "tags": [
+      "intake"
+    ],
+    "failure_mode_guarded": "Family history being written to the chart. It is not one of the writable record types.",
+    "document": {
+      "fixture": "intake_full",
+      "doc_type": "intake_form",
+      "fixture_plan": {
+        "family_history": [
+          {
+            "condition": "diabetes",
+            "page": 1,
+            "label_on_page": "Family history"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 0
+    }
+  }
+]

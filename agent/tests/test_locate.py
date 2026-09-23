@@ -86,6 +86,24 @@ def test_typographic_differences_do_not_prevent_a_match(written, printed):
     assert locate(written, words, label="Range") is not None
 
 
+def test_a_list_separator_clinging_to_a_word_does_not_prevent_a_match():
+    """Guards: a real bug the eval set caught. An intake form printing "Penicillin, Sulfa" extracts the WORD
+    "Penicillin," with the comma attached, so locating "Penicillin" failed and a correctly-read allergy rendered
+    as unlocated. A comma is typography, not content."""
+    words = row(100, "Allergies", "Penicillin,", "Sulfa")
+    assert locate("Penicillin", words, label="Allergies") is not None
+    assert locate("Sulfa", words, label="Allergies") is not None
+
+
+def test_a_full_stop_is_not_stripped_because_it_carries_meaning():
+    """Guards: over-correcting the above. Stripping '.' would change '0.9' and '<0.01', where the character is
+    part of the value."""
+    words = row(100, "Creatinine", "0.9") + row(120, "TSH", "<0.01")
+    assert locate("0.9", words, label="Creatinine") is not None
+    assert locate("<0.01", words, label="TSH") is not None
+    assert locate("09", words, label="Creatinine") is None
+
+
 def test_empty_inputs_are_handled():
     """Guards: a crash on a blank page or an empty extracted value."""
     assert locate("", LAB) is None

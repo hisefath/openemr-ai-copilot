@@ -1,0 +1,273 @@
+[
+  {
+    "id": "EX-01",
+    "tags": [
+      "golden",
+      "lab",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "A five-result lab panel losing a result, or a value read off the wrong row.",
+    "document": {
+      "fixture": "lab_abnormal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.4",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Potassium"
+          },
+          {
+            "test_name": "Sodium",
+            "value": "139",
+            "unit": "mmol/L",
+            "reference_range": "135 - 145",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Sodium"
+          },
+          {
+            "test_name": "Creatinine",
+            "value": "1.8",
+            "unit": "mg/dL",
+            "reference_range": "0.6 - 1.3",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Creatinine"
+          },
+          {
+            "test_name": "HbA1c",
+            "value": "8.2",
+            "unit": "%",
+            "reference_range": "4.0 - 5.6",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "HbA1c"
+          },
+          {
+            "test_name": "TSH",
+            "value": "<0.01",
+            "unit": "mIU/L",
+            "reference_range": "0.4 - 4.0",
+            "abnormal_flag": "low",
+            "page": 1,
+            "label_on_page": "TSH"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 5
+    },
+    "phi_markers": [
+      "Potassium",
+      "HbA1c"
+    ]
+  },
+  {
+    "id": "EX-02",
+    "tags": [
+      "golden",
+      "lab",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "The single-result case being handled differently from a panel.",
+    "document": {
+      "fixture": "lab_single",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.4",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Potassium"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    },
+    "phi_markers": [
+      "Potassium"
+    ]
+  },
+  {
+    "id": "EX-03",
+    "tags": [
+      "lab",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "Normal results being dropped because nothing is abnormal.",
+    "document": {
+      "fixture": "lab_normal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "4.2",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Potassium"
+          },
+          {
+            "test_name": "Sodium",
+            "value": "140",
+            "unit": "mmol/L",
+            "reference_range": "135 - 145",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Sodium"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 2
+    }
+  },
+  {
+    "id": "EX-04",
+    "tags": [
+      "golden",
+      "lab",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "A non-numeric lab value ('<0.01') being coerced to a float, which either fails or invents a precision the lab never reported.",
+    "document": {
+      "fixture": "lab_abnormal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "TSH",
+            "value": "<0.01",
+            "unit": "mIU/L",
+            "reference_range": "0.4 - 4.0",
+            "abnormal_flag": "low",
+            "page": 1,
+            "label_on_page": "TSH"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    }
+  },
+  {
+    "id": "EX-05",
+    "tags": [
+      "lab",
+      "clean_scan"
+    ],
+    "failure_mode_guarded": "An unflagged result rendering as 'normal'. Absence of a flag is a fact about the document.",
+    "document": {
+      "fixture": "lab_abnormal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Creatinine",
+            "value": "1.8",
+            "unit": "mg/dL",
+            "reference_range": "0.6 - 1.3",
+            "abnormal_flag": "unknown",
+            "page": 1,
+            "label_on_page": "Creatinine"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    }
+  },
+  {
+    "id": "EX-06",
+    "tags": [
+      "lab",
+      "degraded_scan"
+    ],
+    "failure_mode_guarded": "THE locate failure: a value that appears both as the result and inside its own reference range must come back unlocated, never confidently boxed.",
+    "document": {
+      "fixture": "lab_degraded",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Potassium",
+            "value": "5.1",
+            "unit": "mmol/L",
+            "reference_range": "3.5 - 5.1",
+            "abnormal_flag": "normal",
+            "page": 1,
+            "label_on_page": "Potassium"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    }
+  },
+  {
+    "id": "EX-07",
+    "tags": [
+      "lab",
+      "degraded_scan"
+    ],
+    "failure_mode_guarded": "A misread value that does appear elsewhere on the page being located on another row.",
+    "document": {
+      "fixture": "lab_degraded",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [
+          {
+            "test_name": "Creatinine",
+            "value": "5.1",
+            "unit": "mg/dL",
+            "reference_range": "0.9 - 1.3",
+            "abnormal_flag": "high",
+            "page": 1,
+            "label_on_page": "Creatinine"
+          }
+        ]
+      }
+    },
+    "expect": {
+      "staged": 1
+    }
+  },
+  {
+    "id": "EX-08",
+    "tags": [
+      "lab"
+    ],
+    "failure_mode_guarded": "A smudged region being silently skipped instead of named.",
+    "document": {
+      "fixture": "lab_abnormal",
+      "doc_type": "lab_pdf",
+      "fixture_plan": {
+        "results": [],
+        "unreadable_regions": [
+          "lower third"
+        ]
+      }
+    },
+    "expect": {
+      "staged": 0
+    }
+  }
+]

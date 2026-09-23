@@ -3,14 +3,16 @@
 
     python evals/w2/bootstrap_recordings.py
 
-What this is and is not. The recordings it writes carry a REAL surface key -- computed from the exact kwargs the
-running app assembles, so the keying rule in replay.py is exercised for real -- but a FIXTURE response rather than
-one Claude actually produced. That is the right trade for building the gate before the model work exists: the gate
-is provably able to fail today, and the responses get replaced by live captures later without any change to the
-harness.
+What this is and is not. The recordings it writes carry a REAL surface key — computed from the exact kwargs the
+running app assembles, so the keying rule in replay.py is exercised for real — but a FIXTURE response rather
+than one Claude actually produced. That is the right trade for building the gate before the model work exists:
+the gate is provably able to fail today, and the responses get replaced by live captures later without any
+change to the harness.
 
-Re-record against live Claude with `--record` on the gate once the Week 2 flow lands. Until then a recording's
-`source` field says `fixture` so nobody mistakes one for evidence of model behaviour.
+A recording's `source` field says `fixture` so nobody mistakes one for evidence of model behaviour. Re-record
+against live Claude once the flow is final; `W2_COST_AND_LATENCY.md` prices that at about $1.50 for the set.
+
+Retrieval cases need no recording: they replay the committed Voyage cache instead.
 """
 from __future__ import annotations
 
@@ -37,55 +39,100 @@ def _resolve(obj, table: dict):
     return obj
 
 
+def _vision_message(plan: dict):
+    """A vision response shaped exactly as the schema constrains the model to."""
+    import json as _json
+    from anthropic.types import Message
+
+    m = Message.model_validate({
+        "id": "msg", "type": "message", "role": "assistant", "model": "claude-haiku-4-5",
+        "content": [{"type": "text", "text": _json.dumps(plan)}], "stop_reason": "end_turn",
+        "stop_sequence": None, "usage": {"input_tokens": 2600, "output_tokens": 300}})
+    m._request_id = "req_fixture"
+    return m
+
+
 def main() -> int:
     import httpx
     from fastapi.testclient import TestClient
 
+    import fixtures
     import test_main as T
-    from copilot import fhir, main as app_main
+    from copilot import fhir, main as app_main, staging as staging_mod
+    from copilot.emr_write import content_filename
     from replay import RecordingClient
+    from run_gate import _openemr, load_cases
 
     for k, v in {"OPENEMR_FHIR_BASE": T.BASE, "PUBLIC_ISSUER": T.BASE, "SMART_CLIENT_ID": "copilot",
                  "SMART_CLIENT_SECRET": "test-secret", "ALLOW_API_SESSIONS": "true", "EVAL_PATIENT_IDS": T.PID,
                  "AGENT_PUBLIC_URL": "http://agent.test", "HMAC_KEY": "test-hmac", "ANTHROPIC_API_KEY": "dummy",
                  "LLM_WARMUP": "false"}.items():
         os.environ[k] = v
-    for k in ("AUDIT_DB_HOST", "LANGFUSE_PUBLIC_KEY"):
+    for k in ("AUDIT_DB_HOST", "LANGFUSE_PUBLIC_KEY", "VOYAGE_API_KEY"):
         os.environ.pop(k, None)
 
     table = {"$PENICILLIN": T.PENICILLIN, "$AMOXICILLIN": T.AMOXICILLIN, "$PID": T.PID}
-
     targets = [(HERE / "cases", HERE / "recordings"), (HERE / "selftest", HERE / "selftest" / "recordings")]
-    written = 0
+    written = skipped = failed = 0
+
     for case_dir, rec_dir in targets:
-        for f in sorted(case_dir.glob("*.json")):
-            cases = json.loads(f.read_text())
-            for case in (cases if isinstance(cases, list) else [cases]):
-                plans = [_resolve(t["fixture_plan"], table) for t in case["turns"] if "fixture_plan" in t]
-                if not plans:
-                    print(f"  skip {case['id']}: no fixture_plan")
-                    continue
-                with TestClient(app_main.app) as c:
-                    app_main.app.state.http = httpx.AsyncClient(transport=httpx.MockTransport(T.openemr))
-                    app_main.app.state.fhir = fhir.FhirClient(app_main.app.state.http, T.BASE, 6)
-                    handle = T.open_session(c)
-                    fake = T.FakeClaude(*[T.plan_message(p) for p in plans])
-                    rec = RecordingClient(fake, case["id"], root=rec_dir)
-                    app_main.app.state.llm = rec
+        for case in load_cases(case_dir):
+            if case.get("kind") == "retrieval":
+                skipped += 1
+                continue
+
+            doc = case.get("document")
+            plans = ([_resolve(doc["fixture_plan"], table)] if doc
+                     else [_resolve(t["fixture_plan"], table) for t in case.get("turns", [])
+                           if "fixture_plan" in t])
+            if not plans:
+                print(f"  skip {case['id']}: no fixture_plan")
+                skipped += 1
+                continue
+
+            state = {}
+            with TestClient(app_main.app) as c:
+                app_main.app.state.http = httpx.AsyncClient(transport=httpx.MockTransport(_openemr(T, state)))
+                app_main.app.state.fhir = fhir.FhirClient(app_main.app.state.http, T.BASE, 6)
+                app_main.app.state.emr_write.__init__(app_main.app.state.http, T.BASE, 6)
+                app_main.app.state.staging = staging_mod.MemoryStagingStore()
+                handle = T.open_session(c)
+
+                replies = ([_vision_message(p) for p in plans] if doc
+                           else [T.plan_message(p) for p in plans])
+                rec = RecordingClient(T.FakeClaude(*replies), case["id"], root=rec_dir)
+                app_main.app.state.llm = rec
+
+                ok = True
+                if doc:
+                    data = fixtures.get(doc["fixture"])
+                    state["bytes"] = data
+                    state["prefix"] = "lab" if doc["doc_type"] == "lab_pdf" else "intake"
+                    r = c.post("/api/session/documents", headers={"Authorization": f"Bearer {handle}"},
+                               files={"file": (doc["fixture"] + ".pdf", data, "application/pdf")},
+                               data={"doc_type": doc["doc_type"]})
+                    ok = r.status_code == 200
+                    if not ok:
+                        print(f"  FAIL {case['id']}: ingest HTTP {r.status_code} {r.text[:100]}")
+                else:
                     for turn in case["turns"]:
                         r = T.ask(c, handle, turn["question"])
                         if r.status_code != 200:
-                            print(f"  FAIL {case['id']}: HTTP {r.status_code} {r.text[:120]}")
+                            ok = False
+                            print(f"  FAIL {case['id']}: HTTP {r.status_code}")
                             break
-                    else:
-                        path = rec.save()
-                        blob = json.loads(path.read_text())
-                        blob["source"] = "fixture"   # not a live capture; see the module docstring
-                        path.write_text(json.dumps(blob, indent=2) + "\n")
-                        written += 1
-                        print(f"  ok   {case['id']}: {len(blob['calls'])} call(s) -> {path.relative_to(REPO)}")
-    print(f"\n{written} recording(s) written")
-    return 0 if written else 1
+
+                if not ok:
+                    failed += 1
+                    continue
+                path = rec.save()
+                blob = json.loads(path.read_text())
+                blob["source"] = "fixture"
+                path.write_text(json.dumps(blob, indent=2) + "\n")
+                written += 1
+
+    print(f"\n  {written} recorded   {skipped} need none   {failed} failed")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
