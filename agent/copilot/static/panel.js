@@ -131,10 +131,14 @@
     async function api(method, path, body, timeoutMs) {
         let res;
         try {
+            // A FormData body must keep the browser's own multipart boundary, so Content-Type is omitted for
+            // it; JSON.stringify on a FormData yields "{}", which would reach the server as an empty upload.
+            const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
             res = await fetch(path, {
                 method,
-                headers: {'Authorization': 'Bearer ' + sessionHandle, 'Content-Type': 'application/json'},
-                body: body === undefined ? undefined : JSON.stringify(body),
+                headers: Object.assign({'Authorization': 'Bearer ' + sessionHandle},
+                                       isForm ? {} : {'Content-Type': 'application/json'}),
+                body: body === undefined || body === null ? undefined : (isForm ? body : JSON.stringify(body)),
                 credentials: 'omit',
                 cache: 'no-store',
                 referrerPolicy: 'no-referrer',
@@ -182,6 +186,22 @@
     // Polls until every load has settled. Launch prefetch reports nothing until it finishes, so an empty map is pending.
     // Timeouts, network errors, 429 and 5xx are retried until the cap; only 'expired' stops early. A newer call
     // (after each answer, to follow §3 Freshness refetches) replaces a running one.
+    function mountDocuments() {
+        const root = document.getElementById('documents');
+        if (!root || !window.CopilotDocuments) return;
+        // documents.js gets a bound caller, never the handle itself (ARCHITECTURE §1 browser boundary).
+        const call = async function (method, path, body, timeoutMs) {
+            const res = await api(method, path, body, timeoutMs);
+            if (res.failure) {
+                if (res.failure === 'expired') expire();
+                throw new Error(TEXT[res.failure] || 'That did not go through.');
+            }
+            return res.data;
+        };
+        window.CopilotDocuments.mount(root, call, el);
+    }
+
+
     async function loadSession() {
         const run = ++pollRun;
         const started = Date.now();
@@ -289,6 +309,7 @@
     // The controls ship disabled so a page whose script failed can't submit the question natively.
     if (sessionHandle) {
         $('ask-controls').disabled = false;
+        mountDocuments();
         loadSession();
     } else expire();
 })();

@@ -91,6 +91,7 @@ async def attach_and_extract(request: Request, file: UploadFile = File(...), doc
         "document": doc.model_dump(),
         "extraction": extracted.model_dump(),
         "located": located, "total": total, "truncated": pages.truncated,
+        "pages": [{"page": i + 1, "width": w, "height": h} for i, (w, h) in enumerate(pages.sizes)],
         "staged": staged, "queue": staging.queue_summary(app.staging, doc.document_id),
     }
 

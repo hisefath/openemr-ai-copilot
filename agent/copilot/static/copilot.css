@@ -175,3 +175,35 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
     .ask-row input { border-radius: var(--r-sm); }
     .quick button { flex: 1 1 100%; }
 }
+
+
+/* ---------------------------------------------------------------- Week 2: documents and the citation overlay */
+
+#documents-section { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.doc-upload-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; border: 0; padding: 0; margin: .4rem 0 0; }
+.doc-upload-row input[type=file] { flex: 1 1 14rem; min-width: 0; color: var(--fg); }
+.doc-upload-row select { padding: .35rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+
+/* The page image is the positioning context; every box is placed as a percentage of it, so the overlay stays
+   aligned at any rendered width and on any paper size. */
+.doc-page { position: relative; display: inline-block; max-width: 100%; margin-top: .6rem; }
+.doc-page img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 4px; }
+.doc-box {
+    position: absolute; border: 2px solid var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent);
+    border-radius: 2px; pointer-events: none; transition: background .12s ease, border-color .12s ease;
+}
+.doc-box.lit { border-color: var(--med-fg); background: color-mix(in srgb, var(--med-fg) 30%, transparent); }
+.doc-pager { display: flex; gap: .3rem; margin-top: .4rem; }
+.doc-pager button.active { font-weight: 600; border-color: var(--fg); }
+
+.doc-facts { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .5rem; }
+.doc-fact { border: 1px solid var(--border); border-left: 3px solid var(--ok); border-radius: 4px; padding: .5rem .6rem; }
+/* A value the page could not confirm is visually distinct from one it did. It is still shown -- it is what the
+   model read -- but it must not look like evidence. */
+.doc-fact.unlocated { border-left-color: var(--med-fg); }
+.doc-fact-head { display: flex; gap: .5rem; align-items: baseline; cursor: default; }
+.doc-kind { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.doc-value { font-weight: 600; }
+.doc-where { margin: .2rem 0 .4rem; font-size: .8rem; color: var(--muted); }
+.doc-actions { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.doc-failed { font-size: .8rem; color: var(--high-fg); }

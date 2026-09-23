@@ -7,6 +7,7 @@
 <!--COPILOT_SESSION_META-->
 <title>Clinical Co-Pilot</title>
 <link rel="stylesheet" href="/static/copilot.css">
+<script src="/static/documents.js" defer></script>
 <script src="/static/panel.js" defer></script>
 </head>
 <body>
@@ -44,6 +45,11 @@
 
     <p class="status" id="busy" role="status" aria-live="polite"></p>
     <div id="answers"></div>
+
+    <section id="documents-section" aria-labelledby="documents-heading">
+        <h2 id="documents-heading">Attached documents</h2>
+        <div id="documents"></div>
+    </section>
 </main>
 </body>
 </html>

@@ -15,7 +15,7 @@ the front desk chooses its size and page count, and a vision call is billed per 
 from __future__ import annotations
 
 import logging
-from typing import Any, List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional, Tuple
 
 from . import locate
 from .emr_write import EmrWriteClient
@@ -44,6 +44,12 @@ class Pages(NamedTuple):
     words: List[List[locate.Word]]         # word boxes per page, for locating values
     page_count: int                        # pages in the document
     truncated: bool                        # True when page_count > MAX_PAGES and we only read a prefix
+    sizes: List[Tuple[float, float]] = []  # (width, height) in PDF points per page read
+
+    def size_of(self, page: int) -> Tuple[float, float]:
+        """Page dimensions in points. The overlay needs these to place a bbox as a percentage of the rendered
+        image, rather than assuming every page is US Letter or hard-coding the render scale in the browser."""
+        return self.sizes[page - 1] if 1 <= page <= len(self.sizes) else (612.0, 792.0)
 
 
 def page_count(pdf_bytes: bytes) -> int:
@@ -60,15 +66,21 @@ def read_pages(pdf_bytes: bytes, max_pages: int = MAX_PAGES) -> Pages:
     Both halves are needed together and both are expensive, so they are produced once and handed on rather than
     re-derived per field. `truncated` is returned rather than logged: a document we only half-read must not look
     like a document we fully read, and the answer has to be able to say so."""
+    import io
+    import pdfplumber
+
     total = page_count(pdf_bytes)
     take = min(total, max_pages)
-    images, words = [], []
-    for n in range(1, take + 1):
-        images.append(locate.render_page_png(pdf_bytes, n))
-        words.append(locate.page_words(pdf_bytes, n))
+    images, words, sizes = [], [], []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for n in range(1, take + 1):
+            images.append(locate.render_page_png(pdf_bytes, n))
+            words.append(locate.page_words(pdf_bytes, n))
+            page = pdf.pages[n - 1]
+            sizes.append((float(page.width), float(page.height)))
     if total > take:
         log.warning("document_truncated", extra={"pages": total, "read": take})
-    return Pages(images=images, words=words, page_count=total, truncated=total > take)
+    return Pages(images=images, words=words, page_count=total, truncated=total > take, sizes=sizes)
 
 
 async def store(client: EmrWriteClient, *, puuid: str, doc_type: DocumentType, data: bytes,

@@ -19,7 +19,14 @@ from copilot.schemas import (Coverage, Flag, LoadStatus, MessageRequest, Message
 STATIC = Path(__file__).parent.parent / "copilot" / "static"
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGES = {"panel.html": "panel.js", "schedule.html": "schedule.js"}
+# Scripts each page loads, in order. documents.js carries the Week 2 upload/overlay/review panel; it is listed
+# here so adding an unexpected script to a page still fails this test.
+SCRIPTS = {"panel.html": ["documents.js", "panel.js"], "schedule.html": ["schedule.js"]}
+# Page scripts own the session handle and the HTTP contract. documents.js is a helper the page mounts: it never
+# sees the handle and never calls fetch itself, so the page-level checks do not apply to it — but every rule
+# about rendering into the DOM does.
 JS = list(PAGES.values())
+DOM_JS = sorted({j for scripts in SCRIPTS.values() for j in scripts})
 # ARCHITECTURE §8: the endpoints each page may call, with their methods.
 API = {"panel.js": {("GET", "/api/session"), ("POST", "/api/session/messages")},
        "schedule.js": {("POST", "/api/schedule/scan")}}
@@ -95,7 +102,8 @@ def test_no_inline_script_style_or_event_handlers(page):
         assert not [a for a in attrs if a.startswith("on")], tag
         assert "style" not in attrs, tag
         assert not any("javascript:" in (v or "").lower() for v in attrs.values()), tag
-    assert [a["src"] for t, a in parsed.tags if t == "script"] == [f"/static/{PAGES[page]}"]
+    assert [a["src"] for t, a in parsed.tags if t == "script"] == \
+        [f"/static/{js}" for js in SCRIPTS[page]]
 
 
 @pytest.mark.parametrize("page", PAGES)
@@ -120,7 +128,7 @@ def test_smart_panel_response_injects_one_handle_meta_before_the_script(page):
     assert body.index("<head>") < body.index(meta) < body.index("<script") < body.index("</head>")
 
 
-@pytest.mark.parametrize("js", JS)
+@pytest.mark.parametrize("js", DOM_JS)
 def test_no_html_sinks_eval_or_browser_storage(js):
     """Guards: chart text rendered as markup (FM-11), string-evaluated code, or the handle persisted outside memory."""
     text = read(js)
