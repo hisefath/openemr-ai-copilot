@@ -541,3 +541,76 @@ class StagedFact(BaseModel):
     status: StagedStatus = StagedStatus.pending
     decided_by: Optional[str] = Field(None, description="fhirUser of the clinician who approved or rejected")
     decided_at: Optional[str] = None
+
+
+# ---------------------------------------------------------------- Week 2: what the vision call returns
+# Deliberately narrower than the stored shapes above. No bbox field is offered to the model AT ALL — not
+# optional, not ignored: absent from the schema it is constrained to. Coordinates come from the page
+# (locate.py). A field the model cannot fill is a field it cannot get wrong.
+#
+# What the model does supply is the page number and the label as printed beside the value. Those are what let
+# the server find the value independently, which is the whole "vision extracts, code locates" division.
+
+
+class SeenValue(BaseModel):
+    value: str = Field(description="Exactly as printed, including units or symbols that are part of it")
+    page: int = Field(description="1-based page this appears on")
+    label_on_page: Optional[str] = Field(None, description="The field name printed beside it, verbatim")
+
+
+class SeenLabResult(BaseModel):
+    test_name: str = Field(description="As printed on the report")
+    value: str = Field(description="As printed: keep '<0.01', 'negative', 'trace' exactly, never round")
+    unit: Optional[str] = None
+    reference_range: Optional[str] = Field(None, description="As printed, e.g. '3.5-5.1'")
+    collection_date: Optional[str] = Field(None, description="ISO 8601 if the report states one")
+    abnormal_flag: AbnormalFlag = Field(AbnormalFlag.unknown,
+                                        description="Only if the report flags it. If it does not, use unknown")
+    page: int
+    label_on_page: Optional[str] = Field(None, description="Usually the test name as printed")
+
+
+class SeenLabReport(BaseModel):
+    results: List[SeenLabResult] = Field(default_factory=list)
+    unreadable_regions: List[str] = Field(
+        default_factory=list,
+        description="Describe any part you could not read, rather than guessing or omitting it silently")
+
+
+class SeenMedication(BaseModel):
+    name: str
+    dose: Optional[str] = None
+    frequency: Optional[str] = None
+    page: int
+    label_on_page: Optional[str] = None
+
+
+class SeenAllergy(BaseModel):
+    substance: str
+    reaction: Optional[str] = Field(None, description="Only if written. Blank means the form did not say")
+    page: int
+    label_on_page: Optional[str] = None
+
+
+class SeenFamilyHistory(BaseModel):
+    condition: str
+    relative: Optional[str] = None
+    page: int
+    label_on_page: Optional[str] = None
+
+
+class SeenDemographics(BaseModel):
+    name: Optional[SeenValue] = None
+    date_of_birth: Optional[SeenValue] = None
+    sex: Optional[SeenValue] = None
+    phone: Optional[SeenValue] = None
+    address: Optional[SeenValue] = None
+
+
+class SeenIntakeForm(BaseModel):
+    demographics: SeenDemographics = Field(default_factory=SeenDemographics)
+    chief_concern: Optional[SeenValue] = None
+    medications: List[SeenMedication] = Field(default_factory=list)
+    allergies: List[SeenAllergy] = Field(default_factory=list)
+    family_history: List[SeenFamilyHistory] = Field(default_factory=list)
+    unreadable_regions: List[str] = Field(default_factory=list)

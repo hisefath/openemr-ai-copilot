@@ -61,7 +61,7 @@ established.
 |---|---|---|
 | `documents.py` | Upload to OpenEMR, fetch back, render pages to images | OpenEMR standard API |
 | `extract.py` | The vision call, constrained by strict schemas | `llm.py`, `schemas.py` |
-| `locate.py` | Word coordinates from the page; match extracted values to them | PyMuPDF, Tesseract |
+| `locate.py` | Word coordinates from the page; match extracted values to them | pdfplumber, pypdfium2, Tesseract |
 | `retrieve.py` | Hybrid search over the guideline corpus, plus rerank | Voyage |
 | `graph.py` | LangGraph nodes, state, handoff log | all workers |
 | `staging.py` | Pending-review store; approval writes to OpenEMR | `audit.py`, `emr_write.py` |
@@ -256,9 +256,12 @@ citation anchor is *not* available from the write. It comes from a follow-up
 [{"filename":"lab.pdf","hash":"5c06112e…386a3","id":987,"mimetype":"application/pdf","docdate":"2026-09-22"}]
 ```
 
-That response carries **both the document id and a content hash** — so §3's content-hash idempotency does not need
-the agent to compute or store its own digest: OpenEMR already keys one, and re-ingest can be detected by matching
-`hash` before uploading at all.
+That response carries a document id and a `hash` — but **the hash is not usable for idempotency.** Measured
+against both the file's own bytes and the bytes OpenEMR stores on disk, `documents.hash` matches neither, so it
+cannot be compared to a digest computed locally. Idempotency therefore keys on **a sha256 prefix carried in the
+filename** (`lab_5c06112e6d235e66.pdf`), which the list response returns verbatim. No extra state to keep in
+sync, nothing to migrate, and visible in OpenEMR's own UI. Verified live: uploading identical bytes twice returns
+the same document id and makes no second POST.
 
 **pid versus puuid is real, and splits exactly where §6 predicted.** `document` takes the **numeric pid**;
 `allergy`, `medication` and `medical_problem` take the **puuid**. The agent's session holds a uuid, so
@@ -385,7 +388,12 @@ user/document.crs             # POST /api/patient/:pid/document
 user/allergy.cruds            # POST /api/patient/:puuid/allergy
 user/medical_problem.cruds    # POST /api/patient/:puuid/medical_problem
 user/medication.cruds         # POST /api/patient/:puuid/medication
+user/patient.crus             # GET  /api/patient/:puuid — resolves the numeric pid
 ```
+
+**Six, not five.** The document route takes the numeric pid while every other write route takes the puuid, and
+the session holds a uuid — so translating requires reading the patient, which is its own scope. Found by building
+it, not by reading the routes.
 
 Note the notation: OpenEMR encodes permissions as a **`cruds` suffix** — c=create, r=read, u=update, d=delete,
 s=search. **There is no `.write` scope**, which is what an earlier draft assumed. Five scopes across two kinds
