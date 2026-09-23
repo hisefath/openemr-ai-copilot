@@ -239,3 +239,28 @@ def test_short_refs_map_back_and_unknown_refs_are_withheld(client):
     assert "AllergyIntolerance/" not in context and '"source_id":"A1"' in context
     lines = [ln for s in body["sections"] for ln in s["lines"]]
     assert any(PENICILLIN in ln["source_ids"] for ln in lines) and body["withheld_count"] == 1
+
+
+def test_ready_reports_ocr_without_gating_readiness(client, monkeypatch):
+    """Guards the silently-degraded deploy.
+
+    Tesseract is an OS package agent/Dockerfile installs. A build that misses it — an auto-detected builder, a
+    changed base image — boots perfectly and then returns "could not be located" for every value on a scanned
+    page, which looks like the design working rather than a broken deploy. So /ready reports it.
+
+    It must not 503 the service: a PDF with a text layer still extracts correctly without tesseract, and taking
+    the app down for a capability most documents don't need would turn a degradation into an outage."""
+    from copilot import locate
+
+    monkeypatch.setattr(locate, "tesseract_available", lambda: True)
+    with_ocr = client.get("/ready").json()
+    monkeypatch.setattr(locate, "tesseract_available", lambda: False)
+    without = client.get("/ready").json()
+
+    assert with_ocr["checks"]["ocr"] == "ok"
+    assert without["checks"]["ocr"] == "unavailable"
+    # The invariant, stated so it holds whatever the other checks are doing in this environment: losing OCR
+    # changes the report and nothing else.
+    assert without["ready"] == with_ocr["ready"]
+    assert {k: v for k, v in without["checks"].items() if k != "ocr"} == \
+           {k: v for k, v in with_ocr["checks"].items() if k != "ocr"}

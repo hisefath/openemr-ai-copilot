@@ -22,6 +22,7 @@ from . import audit
 from . import emr_write
 from . import fhir
 from . import llm
+from . import locate
 from . import observability as obs
 from . import render
 from . import rules
@@ -205,7 +206,13 @@ async def ready(request: Request):
             raise RuntimeError("auth_failed")
 
     await asyncio.gather(check("openemr_fhir", openemr()), check("anthropic", anthropic_api()), check("langfuse", langfuse()))
-    ok = all(v == "ok" for v in checks.values())
+    # OCR is a CAPABILITY REPORT, not a readiness gate. Tesseract is an OS package that agent/Dockerfile installs;
+    # a build that misses it — an auto-detected builder, a changed base image — starts perfectly and then silently
+    # returns "could not be located" for every value on a scanned page, which reads as a design choice rather than
+    # a broken deploy. Surfacing it here is what lets a deploy check catch that. It must NOT 503 the service:
+    # a PDF with a text layer still extracts correctly without tesseract, so the app is genuinely ready.
+    checks["ocr"] = "ok" if locate.tesseract_available() else "unavailable"
+    ok = all(v == "ok" for k, v in checks.items() if k != "ocr")
     return JSONResponse({"ready": ok, "checks": checks}, status_code=200 if ok else 503)
 
 

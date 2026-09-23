@@ -1,18 +1,66 @@
-# GitLab CI — this is the pipeline that runs on the repo a grader actually receives.
+# GitLab CI/CD — the pipeline on the repo a grader actually receives.
 #
 # `origin` has two push URLs and the PRD's submission row is "GitLab Repository", so a gate that only exists as a
-# GitHub Actions workflow does not exist as far as grading is concerned. Everything here runs offline: no network,
-# no API key, no OpenEMR container. Model responses are replayed from evals/w2/recordings (see evals/w2/replay.py).
+# GitHub Actions workflow does not exist as far as grading is concerned.
 #
-# If this pipeline sits perpetually "pending", this project has no available runner — that reads worse than no
-# pipeline at all. In that case the README's one-command gate is authoritative; say so in W2_ARCHITECTURE.md
-# rather than leaving a grey badge.
+# THIS IS A MONOREPO WITH TWO DEPLOYABLE APPS inside a fork of OpenEMR:
+#
+#   agent/          FastAPI + LangGraph, agent/Dockerfile      -> Railway service `agent`
+#   deploy/openemr/ OpenEMR + the Soft Clinical skin           -> Railway service `openemr`
+#   (everything else is the upstream OpenEMR PHP fork and is not built here)
+#
+# Each app's jobs are gated on `rules:changes`, so a commit touching only `agent/` never rebuilds OpenEMR and a
+# commit touching only documentation deploys nothing at all. On a branch push `changes` compares against the
+# previous commit; on the first pipeline for a ref it evaluates TRUE, which fails safe (runs more, never less).
+#
+# Everything up to `deploy` is offline: no network, no API key, no OpenEMR container. Model responses are replayed
+# from evals/w2/recordings (evals/w2/replay.py) and judge verdicts from evals/w2/judge_verdicts.json.
+#
+# TWO THINGS THIS PIPELINE NEEDS FROM A HUMAN:
+#   1. An available runner. If jobs sit grey at "pending" forever, this project has none — that reads worse than
+#      no pipeline at all, and the README's one-command gate is then authoritative. Say so in W2_ARCHITECTURE.md.
+#   2. A RAILWAY_TOKEN CI/CD variable (Settings -> CI/CD -> Variables, masked + protected) for the deploy jobs.
+#      A Railway PROJECT token is the right kind: it is scoped to this project and cannot touch anything else.
+#      Without it the deploy jobs fail; test and gate are unaffected.
 
 stages:
   - test
   - gate
+  - deploy
+  - verify
 
-default:
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+variables:
+  # The agent reads these; none is a real credential. The offline stages never reach the network.
+  ANTHROPIC_API_KEY: "dummy"
+  LANGFUSE_TRACING_ENABLED: "false"
+  LLM_WARMUP: "false"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  RAILWAY_PROJECT: "32296f23-43e5-4ea0-b0a2-7b65b74484be"   # not a secret; it is in every build-log URL
+  RAILWAY_ENV: "production"
+  AGENT_URL: "https://agent-production-e0ed.up.railway.app"
+  ISS: "https://openemr-production-8676.up.railway.app/apis/default/fhir"
+
+# ---------------------------------------------------------------- path filters
+#
+# evals/ is in the agent's filter because the gate scores the agent: an eval-only change still has to prove the
+# agent passes it. .gitlab-ci.yml is in both because a pipeline change should exercise both paths once.
+
+.agent_paths: &agent_paths
+  - agent/**/*
+  - evals/**/*
+  - tools/**/*
+  - .gitlab-ci.yml
+
+.openemr_paths: &openemr_paths
+  - deploy/openemr/**/*
+  - .gitlab-ci.yml
+
+.python:
   image: python:3.12-slim
   cache:
     key: "pip-$CI_COMMIT_REF_SLUG"
@@ -21,20 +69,56 @@ default:
   before_script:
     - pip install --quiet --cache-dir .pipcache -r agent/requirements.txt -r agent/requirements-dev.txt
 
-variables:
-  # The agent reads these; none is a real credential. The suite never reaches the network.
-  ANTHROPIC_API_KEY: "dummy"
-  LANGFUSE_TRACING_ENABLED: "false"
-  LLM_WARMUP: "false"
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+# ---------------------------------------------------------------- always
+#
+# One job with no path filter, so a documentation-only commit still produces a pipeline rather than GitLab
+# refusing to create one. It is cheap and it does check something real.
 
-offline-tests:
+cases:wellformed:
+  image: python:3.12-slim      # stdlib only; no pip install, so a docs-only push costs seconds
   stage: test
+  script:
+    - |
+      python - <<'PY'
+      import glob, json
+      cases = [c for f in sorted(glob.glob("evals/cases/*.json")) for c in json.load(open(f))]
+      ids = [c["id"] for c in cases]
+      assert len(ids) == len(set(ids)), "duplicate case ids"
+      for c in cases:
+          assert c["category"] in {"boundary", "invariant", "regression", "adversarial"}, c["id"]
+          assert c.get("failure_mode_guarded"), f"{c['id']} must name the failure mode it guards against"
+      print(f"{len(cases)} eval cases OK")
+      PY
+
+# ---------------------------------------------------------------- agent
+
+agent:tests:
+  extends: .python
+  stage: test
+  rules:
+    - changes: *agent_paths
   script:
     - cd agent && python -m pytest -q -p no:cacheprovider tests
 
-eval-gate:
+agent:ships-standalone:
+  extends: .python
+  stage: test
+  rules:
+    - changes: *agent_paths
+  script:
+    # agent/README.md claims `pip install ./agent` yields a working agent with no reference to the OpenEMR fork
+    # around it. That claim is what makes agent/Dockerfile's tiny build context correct, so it is asserted here.
+    - python -m venv /tmp/shipcheck
+    - /tmp/shipcheck/bin/pip install --quiet ./agent
+    - /tmp/shipcheck/bin/python -c "import copilot.main, copilot.alerts; print('imports:', copilot.main.app.title)"
+    - /tmp/shipcheck/bin/python -c "import importlib.resources as r; assert (r.files('copilot')/'static').is_dir(), 'static not packaged'"
+    - test -x /tmp/shipcheck/bin/copilot-alerts
+
+agent:gate:
+  extends: .python
   stage: gate
+  rules:
+    - changes: *agent_paths
   script:
     # 1. The replay layer's own checks. If an edited prompt stops being a hard failure, nothing below means anything.
     - python evals/w2/test_replay.py
@@ -42,3 +126,91 @@ eval-gate:
     - python evals/w2/run_gate.py --selftest
     # 3. The gate itself: floors, and no category regressing more than 5% against the committed baseline.
     - python evals/w2/run_gate.py
+    # 4. The holdout, never tuned against, checked against floors only.
+    - python evals/w2/run_gate.py --holdout
+  artifacts:
+    when: always
+    paths:
+      - evals/w2/results/
+    expire_in: 30 days
+
+agent:deploy:
+  stage: deploy
+  image: node:22-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *agent_paths
+  environment:
+    name: production/agent
+    url: $AGENT_URL
+  before_script:
+    - npm install -g @railway/cli
+  script:
+    # The build context must have the Dockerfile at its ROOT. `railway up` from inside the repo uploads the git
+    # root (Railway then detects PHP and runs composer); `railway up agent` uploads agent/ as a SUBfolder. Either
+    # way Railway finds no Dockerfile at the root and silently falls back to its own builder — which produces a
+    # service that boots healthy WITHOUT tesseract-ocr and returns "could not be located" for every scanned page.
+    # Copying the shippable files into a bare directory is what makes the Dockerfile the root. See agent/README.md.
+    - mkdir -p /tmp/ctx
+    - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/copilot /tmp/ctx/
+    - cd /tmp/ctx && railway up --service agent --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
+
+agent:verify:
+  stage: verify
+  image: python:3.12-slim
+  needs: ["agent:deploy"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *agent_paths
+  before_script:
+    - pip install --quiet --cache-dir .pipcache httpx
+  script:
+    # /health and /ready both answer 200 on a STALE build, so neither proves the deploy landed. Two things that do:
+    #   - the scope string the live agent sends to OpenEMR, which only the current code produces
+    #   - the ocr capability, which is "unavailable" on a build that lost the tesseract layer
+    - |
+      python - <<'PY'
+      import os, sys, httpx
+      agent, iss = os.environ["AGENT_URL"], os.environ["ISS"]
+      r = httpx.get(f"{agent}/smart/launch", params={"iss": iss, "aud": iss, "launch": "ci-verify"},
+                    follow_redirects=False, timeout=30)
+      asked = set(httpx.URL(r.headers["location"]).params["scope"].split())
+      need = {"api:oemr", "user/document.crs", "user/allergy.cruds",
+              "user/medical_problem.cruds", "user/medication.cruds", "user/patient.crus"}
+      ready = httpx.get(f"{agent}/ready", timeout=30).json()
+      bad = []
+      if not need <= asked:
+          bad.append(f"stale build: missing write scopes {sorted(need - asked)}")
+      if ready["checks"].get("ocr") != "ok":
+          bad.append("tesseract missing: scanned pages will silently fail to locate any value")
+      for k, v in ready["checks"].items():
+          if k != "ocr" and v != "ok":
+              bad.append(f"{k}: {v}")
+      print(f"scopes requested: {len(asked)}   ready: {ready['ready']}   checks: {ready['checks']}")
+      if bad:
+          print("\n".join("FAIL " + b for b in bad), file=sys.stderr)
+          sys.exit(1)
+      print("deploy verified")
+      PY
+
+# ---------------------------------------------------------------- openemr
+#
+# MANUAL on purpose, and not out of caution. The base image is pinned by digest because the 8.5.0 tag was
+# republished mid-project and a redeploy silently ran a database upgrade (AUDIT.md OPS-4). An OpenEMR redeploy
+# touches the EHR every demo and every eval run depends on, so it is a decision, not a consequence of a push.
+
+openemr:deploy:
+  stage: deploy
+  image: node:22-alpine
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *openemr_paths
+      when: manual
+      allow_failure: true
+  environment:
+    name: production/openemr
+    url: https://openemr-production-8676.up.railway.app
+  before_script:
+    - npm install -g @railway/cli
+  script:
+    - cd deploy/openemr && railway up --service openemr --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
