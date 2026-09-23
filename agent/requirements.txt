@@ -5,3 +5,7 @@ anthropic==0.125.0
 langfuse==3.7.0
 pydantic==2.13.5
 PyMySQL==1.1.2
+pdfplumber==0.11.10
+pypdfium2==5.13.0
+pytesseract==0.3.13
+pillow==12.3.0
