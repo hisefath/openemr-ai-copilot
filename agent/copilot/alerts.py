@@ -80,7 +80,30 @@ def evaluate(questions: List[dict], scans: int, error_events: List[dict], fhir_c
     return results
 
 
+def deliver(webhook: str, text: str) -> None:
+    """Slack reads `text`, Discord reads `content`. One body serves both incoming-webhook formats, so the
+    destination is a configuration choice rather than a code change."""
+    httpx.post(webhook, json={"text": text, "content": text}, timeout=10).raise_for_status()
+
+
 def main() -> int:
+    if "--test-delivery" in sys.argv:
+        # Whether a page actually reaches a human is the one thing a monitor cannot learn from a real incident:
+        # by then it is too late to find out. This takes the SAME path a firing alert takes, so a pass here means
+        # a real alert lands too — and an unset webhook is a failure, not a quiet skip.
+        hook = os.environ.get("ALERT_WEBHOOK_URL")
+        if not hook:
+            print(json.dumps({"test_delivery": "failed", "why": "ALERT_WEBHOOK_URL is not set"}), file=sys.stderr)
+            return 1
+        try:
+            deliver(hook, ":white_check_mark: Clinical Co-Pilot alert delivery test — no action needed. "
+                          "Runbook: ALERTS.md")
+        except httpx.HTTPError as e:
+            print(json.dumps({"test_delivery": "failed", "why": type(e).__name__}), file=sys.stderr)
+            return 1
+        print(json.dumps({"test_delivery": "delivered"}), flush=True)
+        return 0
+
     host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com").rstrip("/")
     auth = (os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"])
     if len(sys.argv) == 3:  # replay a past window: python -m copilot.alerts 2026-09-17T13:00:00Z 2026-09-17T13:15:00Z
@@ -106,7 +129,7 @@ def main() -> int:
         text = (f":rotating_light: {r['alert']} = {r['value']} (threshold {r['threshold']}) over {WINDOW_MIN} min, "
                 f"{r['requests']} requests. Runbook: ALERTS.md")
         try:
-            httpx.post(webhook, json={"text": text, "content": text}, timeout=10).raise_for_status()
+            deliver(webhook, text)
         except httpx.HTTPError as e:  # an undeliverable alert is a broken monitor: fail the run
             print(json.dumps({"webhook_error": type(e).__name__, "alert": r["alert"]}), file=sys.stderr)
             return 1

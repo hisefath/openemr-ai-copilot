@@ -384,6 +384,21 @@ is the same thing wearing a green tick.
 and a tracked `.githooks/pre-push` (third, because `--no-verify` skips it — and it also blocks if the self-test
 stops going red, since a gate that cannot fail is not a gate).
 
+### The GitLab pipeline is pending, and what that means
+
+`.gitlab-ci.yml` defines the full pipeline — path-filtered per app, offline test and gate stages, deploy and a
+post-deploy verification — and it has never executed. As of 2026-09-23 every pipeline on `labs.gauntletai.com`
+sits at **pending**: no runner is available to this project, so nothing picks the jobs up.
+
+Stated plainly because a grey pipeline badge is worth less than no badge at all, and claiming CI coverage that
+has never run once would be the same category of error the rest of this document is about — a gate that blocks
+nothing. **The authoritative gate for this project is therefore the one command in the README**, which runs
+offline in seconds and is what `.githooks/pre-push` invokes on every push.
+
+What the pipeline file still buys, unexecuted: it is the precise, reviewable specification of how each app is
+built, path-filtered and deployed — which is how the Railway build-context rule in `agent/README.md` came to be
+written down at all — and it runs the moment a runner exists, with no further work.
+
 ---
 
 ## 6. Risks and trade-offs

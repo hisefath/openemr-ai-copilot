@@ -93,3 +93,33 @@ def test_fetch_waits_out_rate_limit():
     end = datetime.now(timezone.utc)
     with httpx.Client(base_url="http://lf.test", transport=httpx.MockTransport(lambda request: responses.pop(0))) as client:
         assert [o["id"] for o in alerts.fetch(client, "message", end - timedelta(minutes=15), end)] == ["a"]
+
+
+def test_delivery_selftest_fails_loudly_when_no_webhook_is_configured(monkeypatch, capsys):
+    """Guards the gap ALERTS.md names: a monitor whose delivery has never been exercised.
+
+    Whether a page reaches a human is the one thing a monitor cannot learn from a real incident. The evaluator's
+    normal run deliberately stays green with no webhook (a red cron run must mean the monitor broke, not that an
+    alert fired), so the self-test is where an unconfigured webhook has to be a hard failure — otherwise there is
+    no command anywhere that answers "can this thing actually page anyone?"."""
+    monkeypatch.setattr(alerts.sys, "argv", ["alerts.py", "--test-delivery"])
+    monkeypatch.delenv("ALERT_WEBHOOK_URL", raising=False)
+    assert alerts.main() == 1
+    assert "ALERT_WEBHOOK_URL is not set" in capsys.readouterr().err
+
+
+def test_delivery_selftest_sends_the_body_both_slack_and_discord_read(monkeypatch, capsys):
+    """Guards: a payload only one chat platform understands, which would make the destination a code change."""
+    sent = {}
+
+    def fake_post(url, json, timeout):
+        sent.update(url=url, body=json)
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(alerts.sys, "argv", ["alerts.py", "--test-delivery"])
+    monkeypatch.setenv("ALERT_WEBHOOK_URL", "https://hooks.example/abc")
+    monkeypatch.setattr(alerts.httpx, "post", fake_post)
+    assert alerts.main() == 0
+    assert sent["url"] == "https://hooks.example/abc"
+    assert sent["body"]["text"] == sent["body"]["content"], "Slack reads text, Discord reads content"
+    assert json.loads(capsys.readouterr().out.strip())["test_delivery"] == "delivered"
