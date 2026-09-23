@@ -65,3 +65,79 @@ Measured on the live eval run of 2026-09-20 ([results](evals/results/20260920T13
 | 6 | Follow-up rate | Baseline | **Not yet measurable**: needs real clinicians. Multi-turn follow-ups work (C01, C02), and the load test drove 139 follow-ups over 45 sessions | Pending real use |
 
 Where these can mislead: the evals run on 24 synthetic patients and a small, known rule table, so #2–#5 prove the guarantees hold on the cases we thought of, not on every chart. #1's load-test figure is from the local stack, which has no Railway network hop — expect the deployed p95 to be higher (LOAD_TEST.md says by how much and why). The alert tests and their results are in [ALERTS.md](ALERTS.md).
+
+---
+
+# Week 2 — reading documents without inventing
+
+Week 1's metrics ask whether an answer is grounded in the chart. Week 2 adds two ways to be wrong that Week 1
+could not be: a value read off a page that is not on that page, and a fact that reaches the chart without a
+clinician. These six metrics are about those.
+
+| # | Metric | Target | Measured by |
+|---|---|---|---|
+| 7 | **Located-value rate**: share of extracted values the page independently confirms | ≥ 90 % on clean scans; reported, not targeted, on degraded scans | `extract.located_ratio`; gated per case as `value_located` |
+| 8 | **Unapproved-write rate**: chart records created without a clinician's approval | **0, always** | Eval assertion on the ingest path; `staging` decisions are the only write path |
+| 9 | **Schema-valid extraction rate**: vision output that satisfies the strict schema | ≥ 95 % | `schema_valid` rubric; the model is schema-constrained, so failures are real |
+| 10 | **Evidence-floor discipline**: answers that cite guideline evidence only when a chunk cleared the rerank floor | 100 % | `retrieve` returns nothing below the floor; the answer says so rather than citing weak evidence |
+| 11 | **Supervisor divergence rate**: how often the model's routing differs from the deterministic policy | Reported, not targeted | `HandoffRecord.counterfactual`, aggregated per release |
+| 12 | **Time to reviewed document**: upload → facts on screen with boxes, p50 / p95 | ≤ 20 s / ≤ 45 s | Langfuse span on `POST /api/session/documents` |
+
+## Why each metric
+
+### 7. Located-value rate
+
+The one number that says whether "vision extracts, code locates" is working. Finding a value on the page is
+independent confirmation that the model read something that is actually there — and a *falling* rate is the
+earliest signal that extraction quality has drifted, long before anyone notices a wrong answer.
+
+It is deliberately **not** targeted at 100 %. A genuinely bad scan should produce unlocated values, and forcing
+this number up would mean loosening the match until it starts confirming things it should not. The clean-scan
+floor is what the gate enforces; the degraded-scan rate is reported so the two never get confused.
+
+### 8. Unapproved-write rate
+
+The safety property of the whole week, as a number. A vision model reading a smudged scan cannot alter a chart
+on its own, so this is zero or the design has failed. It is not a quality metric with a tolerance — any non-zero
+value is an incident.
+
+### 9. Schema-valid extraction rate
+
+The model is constrained to the schema, so this should be near 100 % and a drop means something real changed —
+a prompt edit, a model swap, a document type the schema does not fit. Cheap to measure (Pydantic validates or it
+does not) and it climbs no higher than rung 1 of the grader ladder.
+
+### 10. Evidence-floor discipline
+
+An answer grounded in irrelevant evidence is worse than one that says the corpus has nothing to offer, because
+it looks researched. The floor was set from measurement, not taste: the eight eval queries scored 0.52–0.70 when
+the corpus genuinely answered them and 0.475 for a question about the patient's own chart, which no guideline
+should answer. 0.50 separates those two groups.
+
+### 11. Supervisor divergence rate
+
+This exists because the honest answer to "why is the supervisor an LLM?" might be "it does not need to be."
+With `document`, `extracted` and `evidence` on the state, most routing is three null checks. Every routing call
+records what the deterministic policy would have chosen, so the supervisor's value is a measured rate rather
+than an assumption — and if it comes back at zero, the right response is to demote it to a rule and say so.
+
+### 12. Time to reviewed document
+
+The workflow metric. A physician has the time between rooms; a document that takes two minutes to read is a
+document they will not upload twice. Slower than a question on purpose — vision over a multi-page scan cannot
+fit in the 9-second question budget, which is why ingestion runs on its own 90-second deadline.
+
+## Current values
+
+| # | Metric | Target | Current | Status |
+|---|---|---|---|---|
+| 7 | Located-value rate | ≥ 90 % clean | **Instrumented**; gated as `value_located`. Awaiting the 50-case set for a population figure | Instrumented |
+| 8 | Unapproved-write rate | 0 | **0**, asserted end to end: ingestion writes no chart record, and a failed approval leaves the fact pending rather than claiming success | Met |
+| 9 | Schema-valid extraction rate | ≥ 95 % | **Instrumented**; `schema_valid` is in the gate with a 0.95 floor | Instrumented |
+| 10 | Evidence-floor discipline | 100 % | **Met by construction**: `retrieve` cannot return a chunk below the floor, and a reranker outage returns nothing rather than unranked chunks | Met |
+| 11 | Supervisor divergence rate | Reported | **Instrumented** on every `HandoffRecord`; no population figure yet | Instrumented |
+| 12 | Time to reviewed document | p50 ≤ 20 s | **Not yet measured** on real scans; the offline flow test completes in under a second with a fake vision call, which says nothing about the real one | Pending |
+
+Where these can mislead: #7 and #9 are only as good as the documents they are measured on, and the current
+fixtures are clean synthetic PDFs with a text layer — the OCR path is exercised but not yet at volume. #12 has
+no real number at all, and saying "fast" from a test with a fake model would be worse than saying nothing.

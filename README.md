@@ -17,7 +17,9 @@ A SMART on FHIR app that gives a primary care physician a **verified, cited brie
 | [USERS.md](USERS.md) ([USER.md](USER.md)) | The target user (PCP with a 20-patient day), her workflow, six use cases and why an agent is the right shape for each |
 | [AUDIT.md](AUDIT.md) | Security, performance, architecture, data quality and compliance audit: 71 verified findings plus what we found operating the deployment |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The design, its trust boundaries, verification strategy, failure modes, API contract and tradeoffs |
-| [KEY_METRICS.md](KEY_METRICS.md) | The six numbers that show the product works, and why |
+| [KEY_METRICS.md](KEY_METRICS.md) | The six Week 1 numbers that show the product works, and why — plus six more for Week 2 |
+| [W2_ARCHITECTURE.md](W2_ARCHITECTURE.md) | **Week 2**: document ingestion, the worker graph, hybrid retrieval, the write policy, the eval gate, risks and trade-offs |
+| [W2_COST_AND_LATENCY.md](W2_COST_AND_LATENCY.md) | **Week 2**: dev spend, cost per document, projected production cost, and where the time goes |
 | [ALERTS.md](ALERTS.md) | Three alerts and their on-call responses |
 | [LOAD_TEST.md](LOAD_TEST.md) | Load tests at 10 and 50 concurrent physicians: p50/p95/p99, error rate, CPU and memory baselines, and where the next ceiling is |
 | [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md) | Measured development spend, cost per question, and monthly projections at 100 / 1K / 10K / 100K users with the architecture changes each tier needs |
@@ -151,6 +153,30 @@ Live evals (real Claude, local stack, synthetic patients; about $0.08 per full r
 python evals/run_evals.py            # all 32 cases, writes evals/results/<timestamp>.json
 python evals/fault_injection.py A2   # fires one ALERTS.md alert on purpose, then evaluates it
 ```
+
+### Week 2 — what the Co-Pilot can now do
+
+**Week 1 behaviour is unchanged.** Launch from the OpenEMR chart, ask about the patient, get an answer whose
+every sentence is rendered by the server from a cited record. Nothing below replaces that; it is additive.
+
+**Week 2 adds reading documents.** The information that matters before a follow-up visit is often not in the
+structured record — it is in a scanned lab PDF or an intake form the front desk uploaded. So:
+
+| | Week 1 | Week 2 |
+|---|---|---|
+| Sources | Structured OpenEMR records (FHIR) | …plus uploaded lab PDFs and intake forms, plus a guideline corpus |
+| Citations | `ResourceType/id` of a held record | …plus a **box on the page** the value was read from, or an explicit "could not be located" |
+| Writes | None. Read-only | Source documents stored; derived facts reach the chart **only on clinician approval** |
+| Orchestration | One planning call, server-run tools | A supervisor and two workers, with every handoff logged and returned in the API response |
+| Evals | 32 live cases, run on demand | A gate that blocks the build, runs offline, and is proven able to go red |
+
+Attach a document from the panel: it is stored in the chart first (a faithful copy is not a claim), read by a
+vision model constrained to a strict schema, and every value it reports is then located on the page *by the
+server* — the model is never asked for a coordinate. Facts land in a review queue with their boxes, and only an
+approval writes to the record.
+
+The design, and the reasoning behind each of those choices, is in
+[W2_ARCHITECTURE.md](W2_ARCHITECTURE.md).
 
 ### Week 2 — the eval gate
 
