@@ -52,3 +52,8 @@ compose.override.yml
 tmp/
 .webpack-cache/
 __pycache__/
+
+# Local Python virtualenvs. The agent is developed and tested through Docker (agent/README.md); a venv
+# is only for running a module by hand, and must never reach a commit or a Railway build context.
+.venv/
+agent/.venv/
