@@ -16,7 +16,7 @@ Five minutes, and it turns a re-shoot into a take.
 | # | Check | How |
 |---|---|---|
 | 1 | The six scopes are on the Railway OpenEMR client | Admin → System → API Clients → the Co-Pilot client. The Scopes list there is READ-ONLY — it tells you what the client has, it cannot widen it. Need: `api:oemr`, `user/document.crs`, `user/allergy.cruds`, `user/medical_problem.cruds`, `user/medication.cruds`, `user/patient.crus`. Any missing → re-register (see README) and swap `SMART_CLIENT_ID`/`SECRET` on Railway |
-| 2 | Demo users have `patients` / `docs` **write** | Admin → ACL |
+| 2 | The demo user's group has the three ACL entries | **Administration → ACL** (NOT the Access Control box in Edit User — that only picks the group). Under *Patient Information*: **Documents** needs **write** or *add only* (`_rest_routes_standard.inc.php:497`); **Medical Records and History** and **Demographics** just need to be granted, no write qualifier. A stock Physicians group has all three |
 | 3 | The app answers | `curl -s https://agent-production-e0ed.up.railway.app/ready` → `{"ready":true,…}` |
 | 4 | **Do one silent dry run of the whole flow** | Launch → attach → approve. If the approve 403s, it is check 1 or 2 |
 | 5 | Have the two documents ready on your desktop | Generate them: see *Documents* below |
