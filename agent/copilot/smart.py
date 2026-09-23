@@ -22,9 +22,12 @@ from .sessions import Session, SessionStore
 SCOPES = ("openid", "fhirUser", "launch", "user/Patient.rs", "user/AllergyIntolerance.rs", "user/MedicationRequest.rs",
           "user/Condition.rs", "user/Observation.rs", "user/Encounter.rs", "user/Appointment.rs")
 # Week 2. Storing a document and writing an approved fact need OpenEMR's STANDARD REST API, which is a different
-# scope class from FHIR — api:oemr gates the API as a whole and the rest are per-resource. Note the `cruds`
-# suffix (c=create r=read u=update d=delete s=search): there is no `.write` scope. user/patient.crus is here
-# only to resolve the numeric pid the document route needs; the document routes take pid while every other
+# scope class from FHIR — api:oemr gates the API as a whole and the rest are per-resource. The suffix is the v2
+# `cruds` notation (c=create r=read u=update d=delete s=search), and THE LETTERS ARE NOT FREE: the server emits
+# one fixed string per resource (ServerScopeListEntity::getV2ApiScopes), so document is `crs` and patient is
+# `crus`, and asking for `user/document.cruds` is an unsupported scope, not a wider one. A legacy v1 `.write`
+# form also exists and is still advertised; the v2 strings are what these routes check. user/patient.crus is
+# here only to resolve the numeric pid the document route needs; the document routes take pid while every other
 # write route takes puuid.
 #
 # This widens a Week 1 invariant and it is a deliberate trade. The argument that decided it is ATTRIBUTION: when
