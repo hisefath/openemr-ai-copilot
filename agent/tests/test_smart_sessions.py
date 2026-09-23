@@ -105,7 +105,7 @@ def test_ehr_launch_happy_path_is_pkce_bound_and_takes_patient_from_introspectio
     q = query(url)
     assert url.startswith("https://emr.example/oauth2/default/authorize?")
     assert q == {"response_type": "code", "client_id": "copilot", "redirect_uri": "https://agent.example/smart/callback",
-                 "scope": ALLOWLIST, "state": q["state"], "aud": ISS, "launch": "launch-1",
+                 "scope": " ".join(smart.PATIENT_SCOPES), "state": q["state"], "aud": ISS, "launch": "launch-1",
                  "code_challenge": q["code_challenge"], "code_challenge_method": "S256"}
 
     seen = []
@@ -211,6 +211,19 @@ def test_the_week_two_write_scopes_are_accepted_on_a_clinician_session():
     grant = smart.validate_launch_token(token_response(scope=granted), introspection(scope=granted),
                                         "patient", NOW)
     assert set(smart.WRITE_SCOPES) <= set(grant.scopes)
+
+
+def test_a_chart_launch_actually_asks_for_the_write_scopes():
+    """Guards the gap that shipped: the allowlist was widened and the authorize REQUEST was not.
+
+    OpenEMR grants the intersection of the requested scope string and the scopes the client is registered for
+    (AuthorizationController.php:1701, "only authorize scopes specifically allowed by the client regardless of
+    what is sent in the request"). So admitting a scope in _ALLOWED is necessary and useless on its own — a
+    scope absent from this URL cannot come back in the token no matter how the client is registered, and every
+    document attachment and approval write would 403 in the deployed app while every test still passed."""
+    asked = set(query(smart.build_authorize_url(settings(), StateStore(Clock()), "launch-1", ISS, ISS))["scope"].split())
+    assert set(smart.WRITE_SCOPES) <= asked
+    assert asked <= set(smart.PATIENT_SCOPES)   # and nothing beyond what the allowlist will accept back
 
 
 def test_a_schedule_session_still_cannot_write():

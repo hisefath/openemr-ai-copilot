@@ -137,7 +137,10 @@ def _authorize_url(settings: Settings, states: StateStore, kind: Literal["patien
     client_id, _ = _client(settings)   # before begin(), so a misconfigured agent burns no launch
     state, challenge = states.begin(kind, launch)
     params = {"response_type": "code", "client_id": client_id, "redirect_uri": settings.agent_public_url + CALLBACK_PATH,
-              "scope": " ".join(SCOPES if kind == "patient" else SCHEDULE_SCOPES), "state": state,
+              # PATIENT_SCOPES, not SCOPES: OpenEMR grants the intersection of what is REQUESTED here and
+              # what the client is registered for (AuthorizationController.php:1701), so a write scope
+              # missing from this string can never reach the token however the client is registered.
+              "scope": " ".join(PATIENT_SCOPES if kind == "patient" else SCHEDULE_SCOPES), "state": state,
               "aud": settings.public_issuer, **({"launch": launch} if launch else {}),
               "code_challenge": challenge, "code_challenge_method": "S256"}
     return f"{settings.oauth_public_base}/authorize?{urlencode(params)}", state
