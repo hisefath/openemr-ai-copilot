@@ -384,20 +384,23 @@ is the same thing wearing a green tick.
 and a tracked `.githooks/pre-push` (third, because `--no-verify` skips it — and it also blocks if the self-test
 stops going red, since a gate that cannot fail is not a gate).
 
-### The GitLab pipeline is pending, and what that means
+### The GitLab pipeline, and what actually runs it
 
-`.gitlab-ci.yml` defines the full pipeline — path-filtered per app, offline test and gate stages, deploy and a
-post-deploy verification — and it has never executed. As of 2026-09-23 every pipeline on `labs.gauntletai.com`
-sits at **pending**: no runner is available to this project, so nothing picks the jobs up.
+`.gitlab-ci.yml` defines the pipeline: path-filtered per app, offline test and gate stages, deploy, and a
+post-deploy verification. For most of 2026-09-23 it had never executed — `labs.gauntletai.com` offers this
+project no shared runner, so every pipeline sat at **pending**.
 
-Stated plainly because a grey pipeline badge is worth less than no badge at all, and claiming CI coverage that
-has never run once would be the same category of error the rest of this document is about — a gate that blocks
-nothing. **The authoritative gate for this project is therefore the one command in the README**, which runs
-offline in seconds and is what `.githooks/pre-push` invokes on every push.
+It now runs on a **self-hosted project runner** (`macbook-agentforge`, Docker executor) registered from a
+developer Mac. That is an honest trade rather than a fix: the pipeline runs when that machine is on, so a green
+run proves the definition is correct and executable, not that CI is continuously available. **The authoritative
+gate for this project therefore remains the one command in the README**, which runs offline in seconds and is
+what `.githooks/pre-push` invokes on every push — no machine has to be awake for that one.
 
-What the pipeline file still buys, unexecuted: it is the precise, reviewable specification of how each app is
-built, path-filtered and deployed — which is how the Railway build-context rule in `agent/README.md` came to be
-written down at all — and it runs the moment a runner exists, with no further work.
+Two things about the runner cost a build each, and both are recorded in `agent/README.md`: GitLab creates a
+runner with *Run untagged jobs* off, and every job here is untagged, so a correctly-installed runner shows green
+and online while being incapable of matching a single job. And the Docker daemon on that Mac is **Colima**, not
+Docker Desktop — the executor must be pointed at `~/.colima/default/docker.sock`, and that socket cannot be
+bind-mounted into job containers, because it exists on the host and not inside Colima's VM.
 
 ---
 

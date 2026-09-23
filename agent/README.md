@@ -101,3 +101,27 @@ The **`alerts` cron service runs this same image** with a different start comman
 service). Swap `--service agent` for `--service alerts` to deploy it. It must be redeployed alongside the agent:
 it evaluates production against whatever code it was built from, and nothing about a stale one looks wrong — it
 keeps printing healthy-looking JSON on schedule. Wired into `alerts:deploy` in `.gitlab-ci.yml` for that reason.
+
+### Running the pipeline locally (self-hosted GitLab runner)
+
+`labs.gauntletai.com` offers this project no shared runner, so `.gitlab-ci.yml` only executes if a runner is
+registered from a developer machine:
+
+```bash
+brew install gitlab-runner
+gitlab-runner register --non-interactive --url https://labs.gauntletai.com --token <glrt-...> \
+  --executor docker --docker-image python:3.12-slim --name macbook-agentforge
+brew services start gitlab-runner
+```
+
+Three things that each cost a failed build, none of which look like their cause:
+
+1. **Tick "Run untagged jobs"** on the runner in GitLab. It is OFF by default and every job here is untagged, so
+   the runner shows **online and green** while matching nothing. Its log just repeats `Checking for jobs...no
+   content  status=204`.
+2. **Create the runner from THIS project's** Settings → CI/CD → Runners. A runner made elsewhere verifies as
+   valid, appears online, and is never offered a job from this project — the same 204, for a different reason.
+3. **If the Docker daemon is Colima**, set `host = "unix:///Users/<you>/.colima/default/docker.sock"` under
+   `[runners.docker]` in `~/.gitlab-runner/config.toml`, and do **not** bind-mount that socket into job
+   containers. It exists on the host, not inside Colima's VM, so the daemon tries to `mkdir` it over virtiofs
+   and the job dies in *prepare environment* with `operation not supported`.
