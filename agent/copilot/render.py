@@ -4,7 +4,7 @@ import json
 import re
 from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import rules
 from .schemas import (AllergyRecord, ConditionRecord, Coverage, EncounterRecord, Flag, LabRecord, LoadStatus,
@@ -39,6 +39,41 @@ def record_index(ctx: PatientContext) -> Dict[str, Tuple[str, Record]]:
     """source_id -> (kind, record) for this session's patient. Every id of a merged medication maps to the same record.
     Patient is not citable: the banner is rendered from it, the model only sees age and sex."""
     return {sid: (kind, rec) for kind in KINDS for rec in getattr(ctx, kind).records for sid in rec.source_ids}
+
+
+def citation_key(c: "Citation") -> str:
+    """The id a rendered line carries for a citation, namespaced by where it came from.
+
+    Week 1 cited one thing: a FHIR record the server already held, keyed `ResourceType/id`. Week 2 adds two more
+    — a field on an uploaded document and a chunk of guideline text — whose natural ids ("988", "pen-01") are
+    neither unique across sources nor shaped like a FHIR id.
+
+    Namespacing does two jobs. A document field and a FHIR record can never collide, and the SHAPE of an id now
+    says which closed set it must be a member of, so the verifier can reject an id of the right shape that is
+    simply not in the index without having to guess what kind of thing it was meant to be."""
+    from .schemas import SourceType
+
+    if c.source_type is SourceType.document:
+        return f"doc:{c.source_id}:{c.field_or_chunk_id}"
+    if c.source_type is SourceType.guideline:
+        return f"guideline:{c.source_id}"
+    return c.source_id
+
+
+def evidence_index(extracted: Optional[Any], evidence: Sequence["EvidenceChunk"]) -> Dict[str, "Citation"]:
+    """citation_key -> Citation for everything Week 2 added to this turn.
+
+    Built by the server from what it actually holds, exactly like record_index. That is the whole safety
+    property: an id the model invented is not in here, so it is denied, whatever shape it has."""
+    from . import extract as extract_mod
+
+    out: Dict[str, Citation] = {}
+    if extracted is not None:
+        for c in extract_mod._citations(extracted):
+            out[citation_key(c)] = c
+    for chunk in evidence or ():
+        out[citation_key(chunk.citation)] = chunk.citation
+    return out
 
 
 def age(birth_date: Optional[str], today: date) -> Optional[int]:

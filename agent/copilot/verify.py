@@ -23,6 +23,11 @@ NO_IDENTITY = "Patient identity could not be loaded: confirm the chart before ac
 MALFORMED_ID = "malformed"  # audit marker for a cited id that isn't ResourceType/id: never the raw model text
 MAX_TERM = 60  # characters of an unchecked drug term echoed back
 _FHIR_ID = re.compile(r"[A-Z][A-Za-z]+/[A-Za-z0-9.\-]{1,64}")
+# Week 2 cites two things that are not FHIR records: a field on an uploaded document, and a chunk of guideline
+# text. Their ids are namespaced by render.citation_key so they cannot collide with a record id, and so the shape
+# itself says which closed set the id has to be a member of. Shape is necessary and never sufficient — an id of
+# the right shape that the server did not put in the index is still denied.
+_W2_ID = re.compile(r"doc:[A-Za-z0-9.\-]{1,64}:[A-Za-z0-9._\[\]\-]{1,96}|guideline:[A-Za-z0-9._\-]{1,64}")
 _DRUG_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9-]{2,30}")  # a model term is echoed only as one word (SEC-M2)
 # The server, not the model, decides that a question is about giving a drug: it then gets every allergy (§5 step 4).
 _PRESCRIBING = re.compile(r"\b(?:start|starting|give|giving|prescrib\w*|add|adding|switch\w*|restart\w*|resum\w*|"
@@ -70,13 +75,21 @@ def _with_drugs(ctx: PatientContext, flags: List[Flag], drugs: Sequence[str]) ->
     return flags + [f for f in extra if f not in flags]
 
 
-def _denied(plan: Optional[AnswerPlan], selected: Optional[str], index: dict) -> List[str]:
+def _denied(plan: Optional[AnswerPlan], selected: Optional[str], index: dict,
+            w2_index: Optional[dict] = None) -> List[str]:
     """Cited ids outside this session's index, one `denied` audit row each (FM-09). Only well-formed FHIR ids pass
-    through; anything else is model or chart text and becomes a fixed marker (no PHI in audit rows)."""
+    through; anything else is model or chart text and becomes a fixed marker (no PHI in audit rows).
+
+    `w2_index` holds the document fields and guideline chunks this turn actually retrieved, built by the server
+    in render.evidence_index. Membership is still what decides: widening the accepted SHAPES to cover Week 2 ids
+    without also widening the INDEX would have turned the citation gate into a regex, which is precisely the
+    failure it exists to prevent."""
+    known = index if not w2_index else {**index, **w2_index}
     cited = [] if plan is None else [i.source_id for i in plan.items if isinstance(i, RecordItem)]
     cited += plan.clarify.candidate_source_ids if plan and plan.clarify else []
     cited += [selected] if selected else []
-    return [s if _FHIR_ID.fullmatch(s) else MALFORMED_ID for s in dict.fromkeys(cited) if s not in index]
+    return [s if (_FHIR_ID.fullmatch(s) or _W2_ID.fullmatch(s)) else MALFORMED_ID
+            for s in dict.fromkeys(cited) if s not in known]
 
 
 def fallback(ctx: PatientContext, flags: Sequence[Flag], reason: str, today: date, now: datetime) -> VerifiedAnswer:
@@ -105,7 +118,7 @@ def fallback(ctx: PatientContext, flags: Sequence[Flag], reason: str, today: dat
 
 def verify_and_render(plan: Optional[AnswerPlan], ctx: PatientContext, question: str,
                       selected_source_id: Optional[str], flags_base: Sequence[Flag], today: date,
-                      now: datetime) -> VerifiedAnswer:
+                      now: datetime, w2_index: Optional[dict] = None) -> VerifiedAnswer:
     """§5 steps 1-6 in order. plan=None (timeout, refusal, truncation, unparseable) goes straight to the fallback.
     Denied ids and flags for drugs named in the question are computed first, so a refusal and the fail-closed path
     (FM-08) keep them; if that step itself raises, flags_base is used."""
@@ -113,7 +126,7 @@ def verify_and_render(plan: Optional[AnswerPlan], ctx: PatientContext, question:
     flags, notes = list(flags_base), []
     try:
         index = render.record_index(ctx)
-        denied = _denied(plan, selected_source_id, index)
+        denied = _denied(plan, selected_source_id, index, w2_index)
         found, unknown = rules.drugs_in_text(question)
         flags = _with_drugs(ctx, flags, found)
         notes = _unchecked(unknown)
