@@ -67,6 +67,11 @@ variables:
     paths:
       - .pipcache
   before_script:
+    # tesseract is an OS package, not a pip one — pytesseract only shells out to the binary. agent/Dockerfile
+    # installs it; this image does not. Without it read_pages() returns ZERO words for any page with no text
+    # layer, so the document tests and the gate's OCR cases fail in a way that reads as a code bug rather than
+    # a missing dependency. CI has to match the runtime image on this or it is testing a different agent.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends tesseract-ocr
     - pip install --quiet --cache-dir .pipcache -r agent/requirements.txt -r agent/requirements-dev.txt
 
 # ---------------------------------------------------------------- always

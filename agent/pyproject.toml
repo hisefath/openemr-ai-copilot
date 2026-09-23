@@ -13,15 +13,15 @@ description = "Read-only SMART on FHIR clinical co-pilot for OpenEMR: verified a
 readme = "README.md"
 requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
-dependencies = [
-    "fastapi==0.128.8",
-    "uvicorn==0.39.0",
-    "httpx==0.28.1",
-    "anthropic==0.125.0",
-    "langfuse==3.7.0",
-    "pydantic==2.13.5",
-    "PyMySQL==1.1.2",
-]
+# READ FROM requirements.txt, not copied from it. This list was hand-maintained and silently stopped at the
+# Week 1 set: pdfplumber, pypdfium2, pytesseract, pillow, rank-bm25, voyageai, langgraph and python-multipart
+# were all added to requirements.txt and never here, so `pip install ./agent` produced a distribution that
+# imported and then raised at the first document upload. One source of truth makes that drift impossible
+# rather than merely fixed once.
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [project.optional-dependencies]
 dev = ["pytest==8.4.2"]

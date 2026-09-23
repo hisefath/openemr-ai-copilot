@@ -1,0 +1,209 @@
+/* Clinical Co-Pilot panel and schedule scan. No inline styles: CSP default-src 'self' (ARCHITECTURE §1), which also
+   rules out web fonts — the system stack below is what ships. Every colour is a token and components never hard-code
+   one, so the palette below is the single place any colour changes. Fixed dark, matching the skinned EHR this panel
+   opens inside (deploy/openemr/custom/assets/css/soft-clinical.css). */
+:root {
+    color-scheme: dark;
+
+    --bg: #0e1518;
+    --surface: #162126;
+    --sunk: #101a1e;
+    --fg: #e4eef0;
+    --muted: #9bafb6;
+    --border: #24343a;
+    --border-strong: #5a7078;
+    --chip: #1e2c32;
+    --chip-fg: #b6c8ce;
+    --accent: #4fc3be;
+    --accent-fg: #06232a;
+    --accent-hover: #6fd3cf;
+    --accent-soft: #123037;
+    --high-bg: #3a201d;
+    --high-fg: #ffb3a8;
+    --high-edge: #e2685a;
+    --med-bg: #332714;
+    --med-fg: #f0c67a;
+    --med-edge: #c8912f;
+    --ok: #6fd0a0;
+    --ok-bg: #12301f;
+    --focus: #4fc3be;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px -20px rgba(0, 0, 0, 0.9);
+
+    --r: 14px;              /* cards, banner, ask box */
+    --r-sm: 10px;           /* flags, notices, inner blocks */
+    --pad: 16px;
+    --gap: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    /* The page gutter lives here, not on main, so the sticky banner (a sibling of main) lines up with the cards. */
+    padding-inline: var(--pad);
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    letter-spacing: -0.005em;
+}
+
+main { max-width: 60rem; margin: 0 auto; padding: 0 0 var(--pad); }
+h1 { font-size: 1.3rem; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+h2 { font-size: 0.95rem; margin: 1.1rem 0 0.5rem; }
+h3 { font-size: 0.72rem; margin: 1rem 0 0.4rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Patient banner: sticky so identity stays visible while scrolling (ARCHITECTURE §2 patient identity). */
+.banner {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 13px 16px; box-shadow: var(--shadow);
+    max-width: 60rem; margin: var(--pad) auto var(--gap);
+}
+.banner-name { font-weight: 700; font-size: 1.12rem; letter-spacing: -0.015em; }
+.banner-meta { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
+.banner-meta span + span::before { content: " · "; color: var(--muted); }
+.asof { color: var(--muted); font-size: 0.8rem; }
+
+button {
+    font: inherit; cursor: pointer; font-weight: 600;
+    border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--fg);
+    padding: 0.5rem 1rem; min-height: 2.4rem;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-fg); }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+.ask {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 14px 16px; margin: var(--gap) 0; box-shadow: var(--shadow);
+}
+.ask label { display: block; font-weight: 700; margin: 0 0 0.5rem; font-size: 0.92rem; }
+.ask-row { display: flex; gap: 0.5rem; }
+.ask-row input {
+    flex: 1; min-width: 0; font: inherit; padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-strong); border-radius: 999px; color: var(--fg); background: var(--bg);
+}
+.quick { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.quick button { font-size: 0.88rem; padding: 0.42rem 0.9rem; min-height: 2.1rem; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.status { color: var(--muted); min-height: 1.4em; margin: 0.5rem 0; }
+.alert {
+    border: 1px solid var(--high-edge); background: var(--high-bg); color: var(--high-fg);
+    border-radius: var(--r-sm); padding: 0.7rem 0.9rem; font-weight: 600; margin: 0.5rem 0;
+}
+.cid { color: var(--muted); font-size: 0.72rem; overflow-wrap: anywhere; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0; }
+.chip {
+    display: inline-block; background: var(--chip); color: var(--chip-fg);
+    border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.76rem; white-space: nowrap;
+}
+.load-ok, .load-empty { color: var(--ok); background: var(--ok-bg); }
+.load-pending { color: var(--muted); }
+.load-forbidden, .load-expired, .load-error, .load-timeout { background: var(--med-bg); color: var(--med-fg); }
+
+/* Flags: a tinted card with a severity dot. High sorts first in JS and is the louder of the two palettes. */
+.flag {
+    position: relative;
+    background: var(--med-bg); color: var(--med-fg); border: 1px solid var(--med-edge);
+    border-radius: var(--r-sm); padding: 0.7rem 0.9rem 0.7rem 2.2rem; margin: 0.45rem 0;
+}
+.flag::before {
+    content: ""; position: absolute; left: 0.9rem; top: 0.95rem;
+    width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--med-edge);
+}
+.flag-high { background: var(--high-bg); color: var(--high-fg); border-color: var(--high-edge); }
+.flag-high::before { background: var(--high-edge); }
+.flag-sev { font-weight: 800; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.09em; margin-right: 0.5rem; }
+.flag .chip { background: var(--surface); color: inherit; }
+
+.card {
+    /* panel.js focuses each new card and schedule.js focuses the counts: keep both clear of the sticky banner. */
+    scroll-margin-top: 9rem;
+    border: 1px solid var(--border); border-radius: var(--r);
+    margin: var(--gap) 0; padding: var(--pad); background: var(--surface); box-shadow: var(--shadow);
+}
+/* The banner sits flush at the top of the card: same element as the page banner, unstuck and un-shadowed. */
+.card .banner {
+    position: static; max-width: none; margin: calc(var(--pad) * -1) calc(var(--pad) * -1) var(--gap);
+    border: 0; border-bottom: 1px solid var(--border); border-radius: var(--r) var(--r) 0 0;
+    box-shadow: none; background: var(--sunk);
+}
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; align-items: center; }
+.question { font-weight: 700; margin: 0.15rem 0; font-size: 1.02rem; overflow-wrap: anywhere; }
+.badge { border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.74rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.outcome-pass, .outcome-pass_with_removals { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+.outcome-fail, .outcome-refused { color: var(--high-fg); background: var(--high-bg); border-color: transparent; }
+.outcome-clarify, .outcome-partial { color: var(--med-fg); background: var(--med-bg); border-color: transparent; }
+.notice { background: var(--sunk); border-radius: var(--r-sm); padding: 0.6rem 0.9rem; margin: 0.6rem 0; color: var(--muted); }
+.line { padding: 0.6rem 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.line:first-child { border-top: 0; }
+.old { background: var(--med-bg); color: var(--med-fg); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.74rem; margin-left: 0.35rem; white-space: nowrap; }
+.coverage { color: var(--muted); font-size: 0.86rem; margin-top: 0.75rem; background: var(--sunk); border-radius: var(--r-sm); padding: 0.6rem 0.9rem; }
+.coverage li { padding: 0.08rem 0; }
+.withheld { font-size: 0.84rem; margin: 0.6rem 0 0.15rem; color: var(--muted); }
+.clarify { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0; }
+.clarify button { text-align: left; border-radius: var(--r-sm); }
+
+.counts { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; scroll-margin-top: 9rem; }
+
+/* One fixed palette, no prefers-color-scheme branch: the EHR around this panel is itself fixed dark
+   (deploy/openemr), so following the OS here would put a light panel inside a dark chart. */
+.flag .chip { background: rgba(255, 255, 255, 0.08); }
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+}
+
+@media (max-width: 30rem) {
+    body { font-size: 14px; }
+    :root { --pad: 12px; --gap: 10px; }
+    .ask-row { flex-direction: column; }
+    .ask-row input { border-radius: var(--r-sm); }
+    .quick button { flex: 1 1 100%; }
+}
+
+
+/* ---------------------------------------------------------------- Week 2: documents and the citation overlay */
+
+#documents-section { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.doc-upload-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; border: 0; padding: 0; margin: .4rem 0 0; }
+.doc-upload-row input[type=file] { flex: 1 1 14rem; min-width: 0; color: var(--fg); }
+.doc-upload-row select { padding: .35rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+
+/* The page image is the positioning context; every box is placed as a percentage of it, so the overlay stays
+   aligned at any rendered width and on any paper size. */
+.doc-page { position: relative; display: inline-block; max-width: 100%; margin-top: .6rem; }
+.doc-page img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 4px; }
+.doc-box {
+    position: absolute; border: 2px solid var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent);
+    border-radius: 2px; pointer-events: none; transition: background .12s ease, border-color .12s ease;
+}
+.doc-box.lit { border-color: var(--med-fg); background: color-mix(in srgb, var(--med-fg) 30%, transparent); }
+.doc-pager { display: flex; gap: .3rem; margin-top: .4rem; }
+.doc-pager button.active { font-weight: 600; border-color: var(--fg); }
+
+.doc-facts { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .5rem; }
+.doc-fact { border: 1px solid var(--border); border-left: 3px solid var(--ok); border-radius: 4px; padding: .5rem .6rem; }
+/* A value the page could not confirm is visually distinct from one it did. It is still shown -- it is what the
+   model read -- but it must not look like evidence. */
+.doc-fact.unlocated { border-left-color: var(--med-fg); }
+.doc-fact-head { display: flex; gap: .5rem; align-items: baseline; cursor: default; }
+.doc-kind { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.doc-value { font-weight: 600; }
+.doc-where { margin: .2rem 0 .4rem; font-size: .8rem; color: var(--muted); }
+.doc-actions { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.doc-failed { font-size: .8rem; color: var(--high-fg); }

@@ -1,0 +1,2 @@
+[console_scripts]
+copilot-alerts = copilot.alerts:main

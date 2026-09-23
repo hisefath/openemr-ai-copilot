@@ -1,0 +1,152 @@
+Metadata-Version: 2.4
+Name: openemr-clinical-copilot
+Version: 1.0.0
+Summary: Read-only SMART on FHIR clinical co-pilot for OpenEMR: verified answers at the point of care.
+License-Expression: GPL-3.0-or-later
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi==0.128.8
+Requires-Dist: uvicorn==0.39.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: anthropic==0.125.0
+Requires-Dist: langfuse==3.7.0
+Requires-Dist: pydantic==2.13.5
+Requires-Dist: PyMySQL==1.1.2
+Requires-Dist: pdfplumber==0.11.10
+Requires-Dist: pypdfium2==5.13.0
+Requires-Dist: pytesseract==0.3.13
+Requires-Dist: pillow==12.3.0
+Requires-Dist: rank-bm25==0.2.2
+Requires-Dist: voyageai==0.5.0
+Requires-Dist: langgraph==1.2.12
+Requires-Dist: python-multipart==0.0.20
+Provides-Extra: dev
+Requires-Dist: pytest==8.4.2; extra == "dev"
+
+# Clinical Co-Pilot agent
+
+The AI half of the project: a read-only SMART on FHIR assistant that answers a physician's questions about the
+patient already open in OpenEMR, with every sentence traced back to a record it actually read.
+
+It is a **self-contained Python distribution**. It imports nothing from the OpenEMR fork it lives in — it talks to
+OpenEMR over FHIR like any other SMART app — so it installs, tests and deploys on its own:
+
+```bash
+pip install ./agent                       # or: pip install -e './agent[dev]'
+uvicorn copilot.main:app --port 8000
+```
+
+```bash
+docker build -t copilot ./agent && docker run -p 8000:8000 --env-file agent/.env copilot
+```
+
+Configuration is environment-only; see [`.env.example`](.env.example). Full setup, including the OpenEMR side, is in
+the [repository README](../README.md).
+
+## Layout
+
+```
+agent/
+  pyproject.toml     the distribution: name, pins, console script, pytest config
+  requirements.txt   the same runtime pins, duplicated so Docker installs them in a cacheable layer
+  Dockerfile         production image        Dockerfile.dev  test image (source mounted)
+  copilot/           everything importable
+  tests/             offline test suite (no network, no LLM, no database)
+```
+
+### Inside `copilot/`
+
+One module per boundary the agent crosses or per decision it has to defend. Flat, not nested: fifteen modules is
+small enough that a subpackage tree would add lookup cost without removing any coupling.
+
+| Module | Responsibility | Why it is on its own |
+|---|---|---|
+| `main.py` | FastAPI app: routes, request lifecycle, deadline, orchestration | The only module that knows about HTTP |
+| `config.py` | Settings parsed from the environment once, at import | Config errors surface at boot, not mid-question |
+| `smart.py` | SMART on FHIR launch, OAuth2 + PKCE, token exchange | Auth is a security boundary; it is reviewed and tested alone |
+| `sessions.py` | Session store: handle hashing, idle TTL, eviction, history | Holds the only server-side state; swapping it for Redis is a one-file change (ARCHITECTURE §11) |
+| `fhir.py` | The FHIR client: which resources, what concurrency, what errors | The one place that talks to OpenEMR — and the one place tool failures are counted |
+| `normalize.py` | Raw FHIR → typed records (codes, units, dates, statuses) | Pure functions over real OpenEMR payloads; the most heavily fixture-tested code here |
+| `rules.py` | The deterministic clinical rules (interaction, allergy, renal dosing) | Clinical logic must never be the model's job — it is code, and reviewable as code |
+| `llm.py` | Claude call: prompt, structured `AnswerPlan`, retries, cost/usage | Isolating it means the rest of the agent is testable with no API key |
+| `verify.py` | Checks every planned line against the fetched records | The safety gate; a bug here is the worst bug in the system |
+| `render.py` | Server-side rendering of verified lines into the sentences shown | The model never emits display text — this module does |
+| `schemas.py` | Pydantic models for every boundary (API, LLM, audit) | One shared vocabulary, so a shape change breaks at the type level |
+| `audit.py` | Append-only audit rows in MySQL | A compliance surface, kept apart from application logging |
+| `observability.py` | Langfuse tracing, structured logs, PHI scrubbing | Log redaction has to hold everywhere, so it lives in one filter |
+| `deadline.py` | The 9-second question budget, shared by every await | Small enough to read in one sitting, important enough to not inline |
+| `alerts.py` | The ALERTS.md evaluator, run on a 5-minute cron | Ships in the same image but is a separate process (`python -m copilot.alerts`) |
+
+### Tests
+
+`tests/` is the **offline** tier: no network, no Anthropic key, no database. OpenEMR is mocked at the HTTP layer
+with *real* FHIR payloads captured from the seeded demo patients (`tests/fixtures/`), and Claude is a fake that
+returns answer plans. CI runs it on every push; it finishes in seconds and gates the deploy.
+
+The **live** tier is [`evals/`](../evals) at the repository root — real Claude, real OpenEMR, real tokens, run by
+hand because it costs money and needs a running stack. It lives outside `agent/` precisely because it is not part
+of the shippable unit. [`evals/README.md`](../evals/README.md) explains the case taxonomy and the scoring.
+
+See [TESTING.md](../TESTING.md) for what each tier guards against and when to add to which.
+
+### Deploying to Railway
+
+The agent service is **not** connected to git. There is no CI trigger, and changing a Railway variable only
+restarts the existing image — it does not rebuild. A code change reaches production only through `railway up`.
+
+Three things have to line up, and getting any of them wrong costs a failed build:
+
+1. **The Dockerfile must sit at the root of the uploaded context.** Railpack, Railway's auto-builder, is used
+   whenever it cannot find a Dockerfile there, and railpack does not install `tesseract-ocr` — the agent would
+   then start cleanly and silently return unlocated-everything for any scanned PDF.
+2. **`railway up` run from inside the repository uploads the git root**, which is the whole OpenEMR fork. Railway
+   then detects PHP and runs `composer install`.
+3. **Passing a path (`railway up agent`) uploads that path as a SUBFOLDER**, so the context root holds `agent/`
+   rather than the Dockerfile. Railpack again.
+
+So deploy from a staging copy outside the repository:
+
+```bash
+D=$(mktemp -d) && cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot "$D"/ \
+  && (cd "$D" && railway up --project 32296f23-43e5-4ea0-b0a2-7b65b74484be --service agent \
+       --environment production --detach)
+```
+
+`railway.json` pins the builder to the Dockerfile. Verify the deploy reached production by reading the scope
+string the live agent sends to OpenEMR — `/health` cannot tell you which build is serving:
+
+```bash
+ISS=https://openemr-production-8676.up.railway.app/apis/default/fhir
+curl -s -D - -o /dev/null -G https://agent-production-e0ed.up.railway.app/smart/launch \
+  --data-urlencode "iss=$ISS" --data-urlencode "aud=$ISS" --data-urlencode "launch=probe-$RANDOM" \
+  | grep -io "api%3Aoemr" && echo "current build" || echo "STALE BUILD"
+```
+
+The **`alerts` cron service runs this same image** with a different start command (`python alerts.py`, set on the
+service). Swap `--service agent` for `--service alerts` to deploy it. It must be redeployed alongside the agent:
+it evaluates production against whatever code it was built from, and nothing about a stale one looks wrong — it
+keeps printing healthy-looking JSON on schedule. Wired into `alerts:deploy` in `.gitlab-ci.yml` for that reason.
+
+### Running the pipeline locally (self-hosted GitLab runner)
+
+`labs.gauntletai.com` offers this project no shared runner, so `.gitlab-ci.yml` only executes if a runner is
+registered from a developer machine:
+
+```bash
+brew install gitlab-runner
+gitlab-runner register --non-interactive --url https://labs.gauntletai.com --token <glrt-...> \
+  --executor docker --docker-image python:3.12-slim --name macbook-agentforge
+brew services start gitlab-runner
+```
+
+Three things that each cost a failed build, none of which look like their cause:
+
+1. **Tick "Run untagged jobs"** on the runner in GitLab. It is OFF by default and every job here is untagged, so
+   the runner shows **online and green** while matching nothing. Its log just repeats `Checking for jobs...no
+   content  status=204`.
+2. **Create the runner from THIS project's** Settings → CI/CD → Runners. A runner made elsewhere verifies as
+   valid, appears online, and is never offered a job from this project — the same 204, for a different reason.
+3. **If the Docker daemon is Colima**, set `host = "unix:///Users/<you>/.colima/default/docker.sock"` under
+   `[runners.docker]` in `~/.gitlab-runner/config.toml`, and do **not** bind-mount that socket into job
+   containers. It exists on the host, not inside Colima's VM, so the daemon tries to `mkdir` it over virtiofs
+   and the job dies in *prepare environment* with `operation not supported`.

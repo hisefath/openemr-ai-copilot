@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<!--COPILOT_SESSION_META-->
+<title>Clinical Co-Pilot: today's schedule</title>
+<link rel="stylesheet" href="/static/copilot.css">
+<script src="/static/schedule.js" defer></script>
+</head>
+<body>
+<main>
+    <h1>Today's schedule scan</h1>
+    <p class="status">Checks allergies, medications and the last 12 months of labs for your appointments today.</p>
+    <div class="alert" id="fatal" role="alert" hidden></div>
+
+    <button class="primary" id="scan" type="button" disabled>Scan today's schedule</button>
+    <p class="status"><span id="progress" role="status" aria-live="polite"></span> <span id="elapsed" aria-hidden="true"></span></p>
+
+    <section id="result" aria-labelledby="counts" hidden>
+        <h2 class="counts" id="counts" tabindex="-1"></h2>
+        <p class="notice" id="notice"></p>
+        <div id="patients"></div>
+        <p class="cid" id="cid"></p>
+    </section>
+</main>
+</body>
+</html>
