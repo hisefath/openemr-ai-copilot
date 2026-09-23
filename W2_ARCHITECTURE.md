@@ -396,6 +396,18 @@ run proves the definition is correct and executable, not that CI is continuously
 gate for this project therefore remains the one command in the README**, which runs offline in seconds and is
 what `.githooks/pre-push` invokes on every push — no machine has to be awake for that one.
 
+First green end-to-end run: **pipeline 26696** on `a0d1ccb` — `cases:wellformed` 5s, `agent:tests` 42s,
+`agent:ships-standalone` 50s, `agent:gate` 35s, `agent:deploy` 34s, `alerts:deploy` 49s, `agent:verify` 10s;
+`openemr:deploy` manual and not started. `agent:verify` is the one worth reading: it runs *after* the deploy and
+checks the live service's scope string and OCR capability, so the pipeline confirms what it shipped is actually
+serving rather than only that the upload succeeded.
+
+That run also paid for itself. `agent:ships-standalone` had existed since Week 1 and had never once executed
+against Week 2 code; its first real run caught that `pyproject.toml`'s dependency list had silently stopped at
+the Week 1 set, so `pip install ./agent` produced a distribution missing pdfplumber, pypdfium2, pytesseract,
+pillow, rank-bm25, voyageai, langgraph and python-multipart — an agent that imported cleanly and raised on the
+first document upload.
+
 Two things about the runner cost a build each, and both are recorded in `agent/README.md`: GitLab creates a
 runner with *Run untagged jobs* off, and every job here is untagged, so a correctly-installed runner shows green
 and online while being incapable of matching a single job. And the Docker daemon on that Mac is **Colima**, not
