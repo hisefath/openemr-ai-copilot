@@ -9,7 +9,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import anthropic
 import httpx
@@ -19,13 +19,16 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import audit
+from . import emr_write
 from . import fhir
 from . import llm
 from . import observability as obs
 from . import render
 from . import rules
 from . import smart
+from . import staging
 from . import verify
+from . import w2_routes
 from .config import Settings
 from .deadline import Deadline
 from .schemas import (AuditEvent, AuditEventType, EncountersInput, ErrorBody, ErrorResponse, LabHistoryInput, LoadStatus,
@@ -87,6 +90,13 @@ async def lifespan(app: FastAPI):
     app.state.store = SessionStore()
     app.state.states = smart.StateStore()
     app.state.locks: Dict[str, asyncio.Lock] = {}
+    # Week 2. The write client and the review queue are separate from the Week 1 read path on purpose: nothing
+    # on the question path can reach either of them.
+    app.state.emr_write = emr_write.EmrWriteClient(app.state.http, settings.fhir_base, settings.openemr_concurrency)
+    app.state.staging = staging.MemoryStagingStore()
+    app.state.pages_cache: Dict[str, Any] = {}      # document_id -> rendered pages, for the citation overlay
+    app.state.session_resolver = _session            # w2_routes reuses this session check, never its own
+    app.state.retriever = _build_retriever(settings)
     if settings.audit_db_host:
         app.state.audit = audit.AuditWriter(settings)
     else:  # local development without the audit database: rows go to the log instead (never in production)
@@ -102,7 +112,25 @@ async def lifespan(app: FastAPI):
         lf.flush()
 
 
+def _build_retriever(settings: Settings):
+    """Corpus and vectors ship with the package, so this is free and offline. Voyage is used only if a key is
+    set; without one the dense half and the reranker are absent and retrieval reports itself unavailable rather
+    than quietly returning unranked chunks."""
+    from . import retrieve
+
+    try:
+        chunks = retrieve.load_corpus()
+        vectors = json.loads((Path(retrieve.CORPUS).parent / "vectors.json").read_text())["vectors"]
+    except Exception as e:
+        log.warning("corpus_unavailable", extra={"error": type(e).__name__})
+        return None
+    key = os.environ.get("VOYAGE_API_KEY")
+    provider = retrieve.VoyageProvider(key) if key else None
+    return retrieve.HybridRetriever(chunks, vectors, provider, provider)
+
+
 app = FastAPI(title="Clinical Co-Pilot Agent", lifespan=lifespan)
+app.include_router(w2_routes.router)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
