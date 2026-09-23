@@ -63,3 +63,36 @@ hand because it costs money and needs a running stack. It lives outside `agent/`
 of the shippable unit. [`evals/README.md`](../evals/README.md) explains the case taxonomy and the scoring.
 
 See [TESTING.md](../TESTING.md) for what each tier guards against and when to add to which.
+
+### Deploying to Railway
+
+The agent service is **not** connected to git. There is no CI trigger, and changing a Railway variable only
+restarts the existing image — it does not rebuild. A code change reaches production only through `railway up`.
+
+Three things have to line up, and getting any of them wrong costs a failed build:
+
+1. **The Dockerfile must sit at the root of the uploaded context.** Railpack, Railway's auto-builder, is used
+   whenever it cannot find a Dockerfile there, and railpack does not install `tesseract-ocr` — the agent would
+   then start cleanly and silently return unlocated-everything for any scanned PDF.
+2. **`railway up` run from inside the repository uploads the git root**, which is the whole OpenEMR fork. Railway
+   then detects PHP and runs `composer install`.
+3. **Passing a path (`railway up agent`) uploads that path as a SUBFOLDER**, so the context root holds `agent/`
+   rather than the Dockerfile. Railpack again.
+
+So deploy from a staging copy outside the repository:
+
+```bash
+D=$(mktemp -d) && cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/copilot "$D"/ \
+  && (cd "$D" && railway up --project 32296f23-43e5-4ea0-b0a2-7b65b74484be --service agent \
+       --environment production --detach)
+```
+
+`railway.json` pins the builder to the Dockerfile. Verify the deploy reached production by reading the scope
+string the live agent sends to OpenEMR — `/health` cannot tell you which build is serving:
+
+```bash
+ISS=https://openemr-production-8676.up.railway.app/apis/default/fhir
+curl -s -D - -o /dev/null -G https://agent-production-e0ed.up.railway.app/smart/launch \
+  --data-urlencode "iss=$ISS" --data-urlencode "aud=$ISS" --data-urlencode "launch=probe-$RANDOM" \
+  | grep -io "api%3Aoemr" && echo "current build" || echo "STALE BUILD"
+```
