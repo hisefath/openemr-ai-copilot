@@ -46,6 +46,7 @@ $SCOPES = [
     'user/allergy.cruds',         // POST /api/patient/:puuid/allergy
     'user/medical_problem.cruds', // POST /api/patient/:puuid/medical_problem
     'user/medication.cruds',      // POST /api/patient/:puuid/medication
+    'user/patient.crus',          // GET /api/patient/:puuid — resolves the numeric pid the document route needs
 ];
 
 [, $clientId, $username] = array_pad($argv, 3, null);
