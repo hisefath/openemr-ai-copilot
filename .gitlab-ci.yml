@@ -179,15 +179,26 @@ agent:verify:
     #   - the ocr capability, which is "unavailable" on a build that lost the tesseract layer
     - |
       python - <<'PY'
-      import os, sys, httpx
+      import os, sys, time, httpx
       agent, iss = os.environ["AGENT_URL"], os.environ["ISS"]
       # The whole reason /version exists: a deploy that silently kept serving the old image used to be
       # invisible, because /health and /ready answer 200 on any build. This turns it into one comparison.
       want = os.environ["CI_COMMIT_SHA"]
-      got = httpx.get(f"{agent}/version", timeout=30).json()
+      # `railway up --ci` returns when the BUILD finishes, not when the new container is serving, so poll
+      # rather than sampling once. Without this the check races the rollout and fails against the old image —
+      # which would make a correct deploy look like the exact bug this endpoint exists to catch.
+      got = {}
+      for attempt in range(30):
+          try:
+              got = httpx.get(f"{agent}/version", timeout=10).json()
+              if got.get("commit") == want:
+                  break
+          except Exception as e:
+              got = {"commit": f"unreachable: {type(e).__name__}"}
+          time.sleep(10)
       if got.get("commit") != want:
-          print(f"FAIL stale build: /version says {got.get('commit')!r}, this pipeline deployed {want!r}",
-                file=sys.stderr)
+          print(f"FAIL stale build after 300s: /version says {got.get('commit')!r}, "
+                f"this pipeline deployed {want!r}", file=sys.stderr)
           sys.exit(1)
       print(f"running build: {got['commit'][:8]} built {got['built_at']}")
       r = httpx.get(f"{agent}/smart/launch", params={"iss": iss, "aud": iss, "launch": "ci-verify"},
