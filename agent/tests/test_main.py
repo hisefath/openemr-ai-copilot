@@ -264,3 +264,29 @@ def test_ready_reports_ocr_without_gating_readiness(client, monkeypatch):
     assert without["ready"] == with_ocr["ready"]
     assert {k: v for k, v in without["checks"].items() if k != "ocr"} == \
            {k: v for k, v in with_ocr["checks"].items() if k != "ocr"}
+
+
+def test_version_reports_working_tree_when_ci_has_not_stamped_a_build(client):
+    """Guards the honest default: no stamp must mean "I don't know", never a guessed or stale commit.
+
+    copilot/_build.py is written by the deploy job and gitignored. Running from a working tree it is absent,
+    and /version has to say so — a version endpoint that invents a plausible answer is worse than none, because
+    the whole point is answering "is my fix actually deployed?" without inference."""
+    body = client.get("/version").json()
+    assert body["source"] == "working-tree"
+    assert body["commit"] == "unknown"
+
+
+def test_version_reports_the_stamped_commit_when_ci_has_written_one(client, monkeypatch):
+    """Guards the deployed path: CI stamps the commit it is deploying, and /version reports that exact string,
+    which is what lets agent:verify turn "did the deploy land?" into a comparison instead of a timestamp."""
+    import sys as _sys
+    import types as _types
+
+    from copilot import main as _main
+
+    fake = _types.ModuleType("copilot._build")
+    fake.COMMIT, fake.REF, fake.BUILT_AT = "deadbeefcafe", "main", "2026-09-23T17:00:00Z"
+    monkeypatch.setitem(_sys.modules, "copilot._build", fake)
+    info = _main.build_info()
+    assert info == {"commit": "deadbeefcafe", "ref": "main", "built_at": "2026-09-23T17:00:00Z", "source": "ci"}

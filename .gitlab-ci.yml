@@ -158,6 +158,10 @@ agent:deploy:
     # Copying the shippable files into a bare directory is what makes the Dockerfile the root. See agent/README.md.
     - mkdir -p /tmp/ctx
     - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot /tmp/ctx/
+    # Stamp the build so /version can answer "is my fix actually deployed?" with a string comparison instead
+    # of an inference about deploy timestamps. Generated here, never committed: a checked-in version constant
+    # goes stale the moment someone forgets to bump it, which is worse than having none.
+    - printf 'COMMIT = "%s"\nREF = "%s"\nBUILT_AT = "%s"\n' "$CI_COMMIT_SHA" "$CI_COMMIT_REF_NAME" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/ctx/copilot/_build.py
     - cd /tmp/ctx && railway up --service agent --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
 
 agent:verify:
@@ -177,6 +181,15 @@ agent:verify:
       python - <<'PY'
       import os, sys, httpx
       agent, iss = os.environ["AGENT_URL"], os.environ["ISS"]
+      # The whole reason /version exists: a deploy that silently kept serving the old image used to be
+      # invisible, because /health and /ready answer 200 on any build. This turns it into one comparison.
+      want = os.environ["CI_COMMIT_SHA"]
+      got = httpx.get(f"{agent}/version", timeout=30).json()
+      if got.get("commit") != want:
+          print(f"FAIL stale build: /version says {got.get('commit')!r}, this pipeline deployed {want!r}",
+                file=sys.stderr)
+          sys.exit(1)
+      print(f"running build: {got['commit'][:8]} built {got['built_at']}")
       r = httpx.get(f"{agent}/smart/launch", params={"iss": iss, "aud": iss, "launch": "ci-verify"},
                     follow_redirects=False, timeout=30)
       asked = set(httpx.URL(r.headers["location"]).params["scope"].split())
@@ -218,6 +231,7 @@ alerts:deploy:
   script:
     - mkdir -p /tmp/ctx-alerts
     - cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot /tmp/ctx-alerts/
+    - printf 'COMMIT = "%s"\nREF = "%s"\nBUILT_AT = "%s"\n' "$CI_COMMIT_SHA" "$CI_COMMIT_REF_NAME" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/ctx-alerts/copilot/_build.py
     - cd /tmp/ctx-alerts && railway up --service alerts --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENV" --ci
 
 # ---------------------------------------------------------------- openemr

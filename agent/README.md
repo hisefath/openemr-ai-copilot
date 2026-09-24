@@ -83,12 +83,23 @@ So deploy from a staging copy outside the repository:
 
 ```bash
 D=$(mktemp -d) && cp -R agent/Dockerfile agent/railway.json agent/requirements.txt agent/alerts.py agent/copilot "$D"/ \
+  && printf 'COMMIT = "%s"\nREF = "%s"\nBUILT_AT = "%s"\n' "$(git rev-parse HEAD)" "$(git rev-parse --abbrev-ref HEAD)" \
+       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$D/copilot/_build.py" \
   && (cd "$D" && railway up --project 32296f23-43e5-4ea0-b0a2-7b65b74484be --service agent \
        --environment production --detach)
 ```
 
-`railway.json` pins the builder to the Dockerfile. Verify the deploy reached production by reading the scope
-string the live agent sends to OpenEMR — `/health` cannot tell you which build is serving:
+`railway.json` pins the builder to the Dockerfile. **Stamping `_build.py` is not optional.** It is what `/version` reports, and it is the only way to tell a
+shipped fix from one that never left the laptop — `/health` and `/ready` answer 200 on any build. Check it
+directly:
+
+```bash
+curl -s https://agent-production-e0ed.up.railway.app/version
+# {"commit":"...","ref":"main","built_at":"...","source":"ci"}
+# "source":"working-tree" means the deploy did not stamp, so the commit is unknown, not old.
+```
+
+You can also read the scope string the live agent sends to OpenEMR, which only the current code produces:
 
 ```bash
 ISS=https://openemr-production-8676.up.railway.app/apis/default/fhir
