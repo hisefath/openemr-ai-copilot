@@ -136,7 +136,7 @@ fit in the 9-second question budget, which is why ingestion runs on its own 90-s
 | 9 | Schema-valid extraction rate | ≥ 95 % | **1.000** across 46 applicable cases | Met |
 | 10 | Evidence-floor discipline | 100 % | **Met by construction**: `retrieve` cannot return a chunk below the floor, and a reranker outage returns nothing rather than unranked chunks | Met |
 | 11 | Supervisor divergence rate | Reported | **Instrumented** on every `HandoffRecord`; no population figure yet | Instrumented |
-| 12 | Time to reviewed document | p50 ≤ 20 s | **Not yet measured** on real scans; the offline flow test completes in under a second with a fake vision call, which says nothing about the real one | Pending |
+| 12 | Time to reviewed document | p50 ≤ 20 s | **p50 2.989 s, p95 4.113 s** over 24 real ingests with live vision calls (`tools/measure_ingest_latency.py`): render, vision, locate, assemble. Excludes the OpenEMR upload round trip, which needs a clinician token. One outlier at 14.368 s sets the tail | Met |
 
 Where these can mislead: #7 and #9 are only as good as the documents they are measured on, and the current
 fixtures are clean synthetic PDFs with a text layer — the OCR path is exercised but not yet at volume. #12 has

@@ -78,13 +78,32 @@ measured, plus Voyage leaving the free tier (below).
 | Week 1 under 50 concurrent users | **2.0 s** | **3.0 s** (p99 3.7 s) | 374 requests, LOAD_TEST.md |
 | Full offline suite (383 tests) | — | **5.6 s** | Every run |
 | Eval gate, 3 cases | — | **<1 s** | Recorded replay; no network |
+| **Week 2 document ingest** | **2.989 s** | **4.113 s** | 24 real ingests, live vision. `tools/measure_ingest_latency.py` |
 
-### Not measured, and I am not going to pretend otherwise
+### Ingestion, now measured
 
-**Ingestion end-to-end has no real number.** The flow test completes in under a second, but its vision call is a
-fake — that figure says nothing about the real one. `KEY_METRICS.md` #12 is marked *Pending* for the same reason.
+Previously *Pending*: the flow test's vision call is a fake, and a sub-second figure from it said nothing about
+the real one. `tools/measure_ingest_latency.py` runs the real pipeline — render, live vision call, locate,
+assemble — over the eval fixtures. **24 ingests: p50 2.989 s, p95 4.113 s, min 2.318 s,
+max 14.368 s.**
 
-What can be said is the **shape** of the budget, and why ingestion is not on the question path at all:
+| Document | Vision p50 | Vision p95 |
+|---|---|---|
+| `lab_abnormal` | 3.015 s | 4.083 s |
+| `intake_full` | 2.829 s | 14.34 s |
+| `lab_degraded` | 2.363 s | 3.006 s |
+
+Three things worth reading off that rather than the headline. The estimate below said 3–15 s for the vision
+call and **the real p50 is under 3 s** — the budget was pessimistic, not optimistic, which is the better
+direction to be wrong in. The p95 is carried almost entirely by **one 14.368 s outlier on `intake_full`**;
+n=24 is too small for a stable tail, so treat p95 as "occasionally slow", not as a number to design
+against. And `lab_degraded` — the scan with no text layer, which falls through to OCR — is the *fastest* of the
+three, because OCR cost lands in the render step, not the vision call, and that step is still under 50 ms here.
+
+**Still not measured:** the OpenEMR upload round trip, which needs a clinician's OAuth token and therefore a
+human at a login screen. It is estimated below at 0.2–0.6 s and is not part of the numbers above.
+
+The **shape** of the budget, and why ingestion is not on the question path at all:
 
 | Step | Expected | Note |
 |---|---|---|

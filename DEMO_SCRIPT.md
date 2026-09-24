@@ -180,7 +180,7 @@ Worth being disciplined about, because the AI interview will probe exactly these
 
 - **Don't say the 50-case set was scored against real Claude output.** The recordings are fixtures with real
   surface keys; `W2_COST_AND_LATENCY.md` says so and prices the re-record at ~$1.50.
-- **Don't quote an ingestion latency number.** There isn't a real one yet — `KEY_METRICS.md` #12 says *Pending*.
+- **Ingestion latency is now real and quotable**: p50 **2.989 s**, p95 **4.113 s** over 24 live ingests (`tools/measure_ingest_latency.py`). Say it excludes the OpenEMR upload round trip, and that the p95 rides on a single 14.368 s outlier at n=24.
 - **Don't say the supervisor is essential.** Say its divergence from the deterministic policy is *measured*, and
   that if it comes back at zero you would demote it to a rule. That is a stronger answer.
 - **Don't say lab values reach the chart.** They can't — OpenEMR has no lab-result write route. Staged and cited

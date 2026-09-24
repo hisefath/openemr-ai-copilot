@@ -1,34 +1,109 @@
 {
   "model": "claude-haiku-4-5",
-  "runs_per_document": 2,
+  "runs_per_document": 8,
   "documents": [
     "lab_abnormal",
     "intake_full",
     "lab_degraded"
   ],
-  "failures": 6,
+  "failures": 0,
   "end_to_end": {
-    "p50": null,
-    "p95": null,
-    "min": null,
-    "max": null,
-    "n": 0
+    "p50": 2.989,
+    "p95": 4.113,
+    "min": 2.318,
+    "max": 14.368,
+    "n": 24
   },
   "per_document": {
     "lab_abnormal": {
-      "runs": 0,
-      "values_extracted_median": null,
-      "steps": {}
+      "runs": 8,
+      "values_extracted_median": 5.0,
+      "steps": {
+        "render_and_words": {
+          "p50": 0.03,
+          "p95": 0.087,
+          "min": 0.029,
+          "max": 0.087
+        },
+        "vision_call": {
+          "p50": 3.015,
+          "p95": 4.083,
+          "min": 2.958,
+          "max": 4.083
+        },
+        "locate_and_assemble": {
+          "p50": 0.0,
+          "p95": 0.001,
+          "min": 0.0,
+          "max": 0.001
+        },
+        "total": {
+          "p50": 3.046,
+          "p95": 4.113,
+          "min": 2.989,
+          "max": 4.113
+        }
+      }
     },
     "intake_full": {
-      "runs": 0,
-      "values_extracted_median": null,
-      "steps": {}
+      "runs": 8,
+      "values_extracted_median": 4.0,
+      "steps": {
+        "render_and_words": {
+          "p50": 0.034,
+          "p95": 0.12,
+          "min": 0.027,
+          "max": 0.12
+        },
+        "vision_call": {
+          "p50": 2.829,
+          "p95": 14.34,
+          "min": 2.722,
+          "max": 14.34
+        },
+        "locate_and_assemble": {
+          "p50": 0.0,
+          "p95": 0.002,
+          "min": 0.0,
+          "max": 0.002
+        },
+        "total": {
+          "p50": 2.918,
+          "p95": 14.368,
+          "min": 2.758,
+          "max": 14.368
+        }
+      }
     },
     "lab_degraded": {
-      "runs": 0,
-      "values_extracted_median": null,
-      "steps": {}
+      "runs": 8,
+      "values_extracted_median": 3.0,
+      "steps": {
+        "render_and_words": {
+          "p50": 0.029,
+          "p95": 0.049,
+          "min": 0.028,
+          "max": 0.049
+        },
+        "vision_call": {
+          "p50": 2.363,
+          "p95": 3.006,
+          "min": 2.272,
+          "max": 3.006
+        },
+        "locate_and_assemble": {
+          "p50": 0.0,
+          "p95": 0.001,
+          "min": 0.0,
+          "max": 0.001
+        },
+        "total": {
+          "p50": 2.392,
+          "p95": 3.035,
+          "min": 2.318,
+          "max": 3.035
+        }
+      }
     }
   },
   "_excludes": "OpenEMR upload round trip: needs a clinician OAuth token. See W2_COST_AND_LATENCY.md \u00a73."

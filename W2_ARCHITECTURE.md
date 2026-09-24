@@ -380,6 +380,24 @@ So the gate now fails when a category that had applicable cases in the baseline 
 has a single applicable case at all. *A suite that blocks nothing is a dashboard*, and a suite measuring nothing
 is the same thing wearing a green tick.
 
+### What the gate cannot catch, and the check that covers it
+
+The gate replays recorded model responses and never makes a call. That is deliberate — it is what makes a 5%
+threshold mean something instead of measuring sampling noise — but it means the gate proves the agent's LOGIC
+against a frozen model and says nothing about whether the requests the agent assembles are ones the API still
+accepts.
+
+That gap was not hypothetical. For the whole of Week 2 both document extraction and the supervisor's routing
+call passed `output_config` the format object directly instead of `{"format": {...}}`, and every real call
+returned `400 output_config.type: Extra inputs are not permitted`. 396 tests, 55 gated cases and a holdout all
+passed over a request the API rejects, because the recordings carry real surface keys with fixture responses —
+the hash looked healthy while the kwargs were malformed.
+
+`tools/live_smoke.py` closes it: one real call down each external path — vision extraction, supervisor routing,
+the answer plan, and Voyage embed plus rerank — asserting only that each is **accepted** and parseable, never
+what it returned. Content is the gate's job; acceptance is the API's. It costs a few cents and is the thing to
+run before recording a demo or after an SDK bump.
+
 **Blocking, in the order a grader reaches it:** one command in the README, `.gitlab-ci.yml` on the graded remote,
 and a tracked `.githooks/pre-push` (third, because `--no-verify` skips it — and it also blocks if the self-test
 stops going red, since a gate that cannot fail is not a gate).
