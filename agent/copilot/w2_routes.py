@@ -86,6 +86,18 @@ async def attach_and_extract(request: Request, file: UploadFile = File(...), doc
     facts = staging.derive(extracted, doc, confidence=located / total if total else 0.0)
     staged = app.staging.put(facts)
 
+    # PRD §7 requires extraction confidence on the per-encounter log, and it was being computed here and then
+    # thrown away — the route returned it to the browser but nothing recorded it. Counts and a ratio only: the
+    # confidence is what fraction of what the model read could be located on the page, and the values
+    # themselves are PHI. A run of low-confidence documents is the signal that a scan source has degraded.
+    log.info("ingest", extra={
+        "doc_type": kind.value, "pages": pages.page_count, "truncated": pages.truncated,
+        "values_read": total, "values_located": located,
+        "extraction_confidence": round(located / total, 3) if total else 0.0,
+        "staged": staged, "llm_calls": meta.calls, "llm_cost_usd": round(meta.cost_usd, 6),
+        "input_tokens": meta.tokens.get("input", 0), "output_tokens": meta.tokens.get("output", 0),
+        "elapsed_s": round(INGEST_DEADLINE_S - deadline.remaining(), 2)})
+
     app.pages_cache[doc.document_id] = pages     # so the overlay can serve the page it drew boxes on
     # A later question in this session needs to know a document exists and what was read from it, so the
     # supervisor can route and so its citations are accepted by the verifier.

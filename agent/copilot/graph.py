@@ -205,6 +205,12 @@ async def evidence_retriever(state: GraphState, deps: Deps) -> Dict[str, Any]:
             log.warning("retrieval_unavailable", extra={"reason": str(e)})
             reason = RoutingReason.retrieval_exhausted
             break
+        # PRD §7 requires retrieval hits per encounter. Only the failure path was logged, so a retriever
+        # quietly returning nothing looked identical to one never being asked. Counts and scores only — the
+        # query and the chunk text are not logged, because a question can carry PHI.
+        log.info("retrieval", extra={"iteration": iteration, "hits": len(evidence),
+                                     "top_score": round(evidence[0].score, 3) if evidence else None,
+                                     "reformulated": iteration > 1})
         if evidence:                                  # DETERMINISTIC: chunks above the floor, or nothing
             reason = RoutingReason.ready_to_answer
             break

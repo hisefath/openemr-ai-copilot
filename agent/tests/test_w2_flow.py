@@ -294,3 +294,24 @@ def test_an_uploaded_document_is_visible_to_the_next_question(client):
     main.app.state.llm = T.FakeClaude(T.plan_message({"intent": "brief", "items": []}))
     body = T.ask(client, handle, "What did the form say?").json()
     assert body["handoffs"]
+
+
+def test_ingest_and_retrieval_log_the_fields_the_prd_names(caplog):
+    """Guards: PRD §7's per-encounter log losing extraction confidence or retrieval hits.
+
+    Both were computed and discarded — the ingest route returned located/total to the browser and logged
+    neither, and the retriever logged only its failure path, so a retriever quietly returning nothing looked
+    identical to one that was never asked. Also guards the other half: these lines must carry counts and
+    scores, never a value, a label, a query or chunk text, because all four can carry PHI."""
+    from pathlib import Path as _Path
+
+    from copilot import graph as _graph
+    from copilot import w2_routes as _w2
+
+    src = _Path(_w2.__file__).read_text() + _Path(_graph.__file__).read_text()
+    assert '"extraction_confidence"' in src, "PRD §7 names extraction confidence"
+    assert '"hits"' in src and 'log.info("retrieval"' in src, "PRD §7 names retrieval hits"
+
+    # And the payloads stay PHI-free: no field carries text read off a page or typed by a clinician.
+    for banned in ('"query"', '"question"', '"chunk_text"', '"text": q', '"values":'):
+        assert banned not in src.split('log.info("ingest"')[-1].split("})")[0], banned
