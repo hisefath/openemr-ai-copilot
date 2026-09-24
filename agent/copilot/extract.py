@@ -63,7 +63,13 @@ COMMON = (
 
 
 def output_format(doc_type: DocumentType) -> dict:
-    return {"type": "json_schema", "schema": transform_schema(SEEN_MODEL[doc_type])}
+    """The structured-output block for `output_config`.
+
+    Note the `format` wrapper. `output_config` takes {"format": {...}}; passing the format object directly is
+    rejected with `output_config.type: Extra inputs are not permitted`. This was wrong here and in graph.py for
+    the whole of Week 2 and no test caught it, because the eval gate replays recorded responses and never makes
+    the call — llm.py:167 had it right the whole time, which is why the Week 1 answer path worked."""
+    return {"format": {"type": "json_schema", "schema": transform_schema(SEEN_MODEL[doc_type])}}
 
 
 async def read_document(client: anthropic.AsyncAnthropic, settings: Settings, doc_type: DocumentType,

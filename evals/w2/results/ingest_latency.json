@@ -1,0 +1,35 @@
+{
+  "model": "claude-haiku-4-5",
+  "runs_per_document": 2,
+  "documents": [
+    "lab_abnormal",
+    "intake_full",
+    "lab_degraded"
+  ],
+  "failures": 6,
+  "end_to_end": {
+    "p50": null,
+    "p95": null,
+    "min": null,
+    "max": null,
+    "n": 0
+  },
+  "per_document": {
+    "lab_abnormal": {
+      "runs": 0,
+      "values_extracted_median": null,
+      "steps": {}
+    },
+    "intake_full": {
+      "runs": 0,
+      "values_extracted_median": null,
+      "steps": {}
+    },
+    "lab_degraded": {
+      "runs": 0,
+      "values_extracted_median": null,
+      "steps": {}
+    }
+  },
+  "_excludes": "OpenEMR upload round trip: needs a clinician OAuth token. See W2_COST_AND_LATENCY.md \u00a73."
+}

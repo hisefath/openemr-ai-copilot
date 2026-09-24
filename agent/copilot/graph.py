@@ -142,7 +142,8 @@ async def _ask_supervisor(deps: Deps, state: GraphState) -> Optional[RoutingDeci
                    "Decide the next step for a clinical co-pilot answering a follow-up question.\n"
                    f"State: {state_shape(state)}\n"
                    "Choose `retrieve` only if the held evidence cannot support the new question."}],
-        output_config={"type": "json_schema", "schema": transform_schema(RoutingDecision)},
+        # `output_config` takes a `format` wrapper; the bare format object is a 400. See extract.py:output_format.
+        output_config={"format": {"type": "json_schema", "schema": transform_schema(RoutingDecision)}},
     )
     text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
     return RoutingDecision.model_validate_json(text) if text else None
