@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Evidence Over Confidence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;1,400&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#F5F7F9; --surface:#FFFFFF; --surface-2:#EDF1F5;
+  --ink:#141D26; --ink-2:#3D4E5E; --muted:#6B7F91;
+  --rule:#D9E1E8; --rule-strong:#BDCAD6;
+  --signal:#B9691F; --signal-soft:#F5E6D6;
+  --pass:#2B6E54; --pass-soft:#DDEDE5;
+  --fail:#A5342A; --fail-soft:#F6E0DD;
+  --term-bg:#111A23; --term-ink:#D7E3ED; --term-dim:#7C93A6;
+  --shadow:0 1px 2px rgba(20,29,38,.06), 0 8px 24px rgba(20,29,38,.07);
+  --sans:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif:"IBM Plex Serif", Georgia, serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0C131A; --surface:#141E28; --surface-2:#1B2733;
+    --ink:#E4EDF4; --ink-2:#B6C7D5; --muted:#7E94A6;
+    --rule:#243341; --rule-strong:#34485A;
+    --signal:#DFA15C; --signal-soft:#2A2016;
+    --pass:#5CC195; --pass-soft:#12261E;
+    --fail:#E4786A; --fail-soft:#2A1613;
+    --term-bg:#080E14; --term-ink:#D7E3ED; --term-dim:#6E8496;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0C131A; --surface:#141E28; --surface-2:#1B2733;
+  --ink:#E4EDF4; --ink-2:#B6C7D5; --muted:#7E94A6;
+  --rule:#243341; --rule-strong:#34485A;
+  --signal:#DFA15C; --signal-soft:#2A2016;
+  --pass:#5CC195; --pass-soft:#12261E;
+  --fail:#E4786A; --fail-soft:#2A1613;
+  --term-bg:#080E14; --term-ink:#D7E3ED; --term-dim:#6E8496;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit}
+
+/* ---------- chrome ---------- */
+#bar{
+  position:fixed; inset:0 0 auto 0; height:3px; background:var(--rule);
+  z-index:60;
+}
+#bar i{display:block;height:100%;background:var(--signal);width:0;transition:width .25s ease}
+
+#top{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:50;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:10px 20px; background:color-mix(in srgb, var(--ground) 92%, transparent);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--rule);
+}
+#top .brand{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); white-space:nowrap;
+}
+#top .spacer{flex:1}
+.ctl{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 11px; border:1px solid var(--rule-strong); border-radius:6px;
+  background:var(--surface); cursor:pointer; font-size:13px; font-weight:500;
+}
+.ctl:hover{border-color:var(--signal)}
+.ctl:focus-visible{outline:2px solid var(--signal); outline-offset:2px}
+.ctl[aria-pressed="true"]{background:var(--signal-soft); border-color:var(--signal); color:var(--signal)}
+.counter{font-family:var(--mono); font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.clock{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums; color:var(--ink-2)}
+.clock.over{color:var(--fail); font-weight:600}
+
+/* ---------- stage ---------- */
+main{padding:0 20px 40px; max-width:1180px; margin:0 auto}
+.slide{display:none}
+.slide.on{display:block; animation:in .28s ease both}
+@keyframes in{from{opacity:.4; transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){ .slide.on{animation:none} }
+
+.deck{
+  background:var(--surface); border:1px solid var(--rule); border-radius:12px;
+  box-shadow:var(--shadow); padding:34px 34px 30px; margin-top:22px;
+  min-height:390px;
+}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--signal); margin:0 0 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+}
+.eyebrow .tick{color:var(--muted); letter-spacing:.06em}
+h1{
+  font-size:clamp(28px,4.4vw,46px); line-height:1.08; margin:0 0 6px; letter-spacing:-.022em;
+  font-weight:700; text-wrap:balance;
+}
+h2{
+  font-size:clamp(22px,3.1vw,33px); line-height:1.14; margin:0 0 16px; letter-spacing:-.018em;
+  font-weight:600; text-wrap:balance;
+}
+.sub{font-size:clamp(15px,1.8vw,19px); color:var(--ink-2); margin:0 0 20px; max-width:62ch}
+ul.pts{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:11px}
+ul.pts li{
+  position:relative; padding-left:20px; font-size:16.5px; color:var(--ink-2); max-width:70ch;
+}
+ul.pts li::before{
+  content:""; position:absolute; left:2px; top:.62em; width:7px; height:2px; background:var(--signal);
+}
+ul.pts li b,ul.pts li strong{color:var(--ink); font-weight:600}
+code{font-family:var(--mono); font-size:.9em; background:var(--surface-2); padding:1px 5px; border-radius:4px}
+
+.quote{
+  font-family:var(--serif); font-size:clamp(18px,2.4vw,25px); line-height:1.36;
+  color:var(--ink); border-left:3px solid var(--signal); padding:4px 0 4px 18px; margin:22px 0 0;
+  max-width:60ch; text-wrap:balance;
+}
+
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start}
+@media (max-width:820px){ .grid2{grid-template-columns:1fr} }
+
+/* ---------- data bits ---------- */
+table.rub{width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums}
+table.rub th{
+  text-align:left; font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); font-weight:500; padding:0 10px 7px 0; border-bottom:1px solid var(--rule);
+}
+table.rub td{padding:7px 10px 7px 0; border-bottom:1px solid var(--rule); color:var(--ink-2)}
+table.rub td.k{font-family:var(--mono); color:var(--ink); font-size:13px}
+table.rub td.v{font-family:var(--mono); color:var(--pass); font-weight:600}
+.wrap-x{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+.stat{display:flex; gap:26px; flex-wrap:wrap; margin-top:4px}
+.stat div{min-width:96px}
+.stat .n{font-family:var(--mono); font-size:clamp(22px,3vw,30px); font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.stat .l{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin-top:3px}
+
+pre.term{
+  background:var(--term-bg); color:var(--term-ink); border-radius:9px; padding:16px 18px; margin:0;
+  font-family:var(--mono); font-size:12.5px; line-height:1.58; overflow-x:auto; border:1px solid var(--rule-strong);
+}
+pre.term .p{color:var(--term-dim)}
+pre.term .ok{color:#6FD3A4}
+pre.term .no{color:#F08878}
+pre.term .hi{color:#E7B571}
+.cap{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:.03em}
+
+/* screenshot slot */
+.shot{
+  border:1px dashed var(--rule-strong); border-radius:9px; background:var(--surface-2);
+  min-height:200px; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center;
+  overflow:hidden;
+}
+.shot img{max-width:100%; height:auto; display:block; border-radius:5px}
+.shot .ph{max-width:46ch}
+.shot .ph .f{font-family:var(--mono); font-size:12px; color:var(--signal); margin-bottom:7px; word-break:break-all}
+.shot .ph .d{font-size:13.5px; color:var(--muted); line-height:1.45}
+
+/* ---------- notes ---------- */
+#notes{
+  margin:18px 0 0; border:1px solid var(--rule); border-left:3px solid var(--signal);
+  border-radius:9px; background:var(--surface); padding:20px 22px;
+}
+#notes h3{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); margin:0 0 12px; font-weight:500;
+}
+#notes .script{font-size:18px; line-height:1.62; color:var(--ink); max-width:68ch; margin:0}
+#notes .script em{font-style:normal; background:var(--signal-soft); color:var(--signal); padding:0 3px; border-radius:3px}
+.cue{
+  margin-top:15px; padding-top:13px; border-top:1px dashed var(--rule-strong);
+  display:flex; gap:11px; align-items:baseline; flex-wrap:wrap;
+}
+.cue .tag{
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  background:var(--signal); color:#fff; padding:3px 8px; border-radius:4px; white-space:nowrap;
+}
+.cue .txt{font-family:var(--serif); font-style:italic; color:var(--ink-2); font-size:15.5px}
+.doing{margin-top:13px; font-size:14px; color:var(--muted)}
+.doing b{color:var(--ink-2); font-weight:600}
+
+/* ---------- nav ---------- */
+#nav{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:18px; flex-wrap:wrap}
+#dots{display:flex; gap:5px; flex-wrap:wrap}
+#dots button{
+  width:9px; height:9px; padding:0; border-radius:50%; border:1px solid var(--rule-strong);
+  background:transparent; cursor:pointer;
+}
+#dots button[aria-current="true"]{background:var(--signal); border-color:var(--signal); transform:scale(1.25)}
+#dots button:focus-visible{outline:2px solid var(--signal); outline-offset:2px}
+
+/* ---------- interview overlay ---------- */
+#iv{
+  position:fixed; inset:0; z-index:70; background:var(--ground); overflow-y:auto; padding:0 20px 60px;
+}
+#iv .inner{max-width:880px; margin:0 auto}
+#iv header{
+  position:sticky; top:0; background:color-mix(in srgb, var(--ground) 93%, transparent);
+  backdrop-filter:blur(8px); padding:16px 0 12px; border-bottom:1px solid var(--rule);
+  display:flex; align-items:center; gap:14px; margin-bottom:26px;
+}
+#iv h2{margin:0; font-size:22px}
+.qgroup{margin-bottom:34px}
+.qgroup > h3{
+  font-family:var(--mono); font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--signal); margin:0 0 14px; padding-bottom:7px; border-bottom:1px solid var(--rule);
+}
+details.q{border:1px solid var(--rule); border-radius:8px; background:var(--surface); margin-bottom:10px; overflow:hidden}
+details.q summary{padding:13px 16px; cursor:pointer; font-weight:600; font-size:15.5px; list-style:none}
+details.q summary::-webkit-details-marker{display:none}
+details.q summary::before{content:"▸ "; color:var(--signal); font-weight:400}
+details.q[open] summary::before{content:"▾ "}
+details.q summary:focus-visible{outline:2px solid var(--signal); outline-offset:-2px}
+details.q .body{padding:0 16px 16px; border-top:1px solid var(--rule)}
+.ans{margin-top:13px}
+.ans .lab{
+  font-family:var(--mono); font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+  padding:2px 7px; border-radius:4px; display:inline-block; margin-bottom:6px;
+}
+.ans.good .lab{background:var(--pass-soft); color:var(--pass)}
+.ans.bad .lab{background:var(--fail-soft); color:var(--fail)}
+.ans.probe .lab{background:var(--surface-2); color:var(--muted)}
+.ans p{margin:0; font-size:15px; color:var(--ink-2); line-height:1.58}
+
+.hint{font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:26px; text-align:center; letter-spacing:.03em}
+kbd{
+  font-family:var(--mono); font-size:11px; border:1px solid var(--rule-strong); border-bottom-width:2px;
+  border-radius:4px; padding:1px 5px; background:var(--surface); color:var(--ink-2);
+}
+</style>
+</head>
+<body>
+<div id="bar"><i></i></div>
+
+<div id="top">
+  <span class="brand">Clinical Co-Pilot · Week 2</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock">0:00 / 5:02 core</span>
+  <span class="counter" id="count">1 / 15</span>
+  <button class="ctl" id="bNotes" aria-pressed="true">Notes</button>
+  <button class="ctl" id="bIv">Interview prep</button>
+  <button class="ctl" id="bTheme">Theme</button>
+</div>
+
+<main>
+  <div id="stage"></div>
+  <div id="notes"></div>
+  <div id="nav">
+    <div style="display:flex;gap:10px">
+      <button class="ctl" id="bPrev">← Back</button>
+      <button class="ctl" id="bNext">Next →</button>
+    </div>
+    <div id="dots"></div>
+  </div>
+  <p class="hint">
+    <kbd>→</kbd> / <kbd>Space</kbd> next · <kbd>←</kbd> back · <kbd>N</kbd> notes · <kbd>I</kbd> interview prep · <kbd>T</kbd> theme · <kbd>R</kbd> reset timer
+  </p>
+</main>
+
+<div id="iv" hidden></div>
+
+<script>
+/* ============================ CONTENT ============================ */
+
+const T = {
+gate:`<span class="p">$ python evals/w2/run_gate.py</span>
+
+  55 cases
+
+  category                    rate     n   baseline
+  ------------------------ -------  ----  ---------
+  schema_valid               <span class="ok">1.000</span>    46      1.000
+  citation_present           <span class="ok">1.000</span>    36      1.000
+  factually_consistent       <span class="ok">1.000</span>    19      1.000
+  safe_refusal               <span class="ok">1.000</span>     6      1.000
+  no_phi_in_logs             <span class="ok">1.000</span>    11      1.000
+  no_unapproved_write        <span class="ok">1.000</span>    30      1.000
+  evidence_grounded          <span class="ok">1.000</span>     9      1.000
+  value_located              <span class="ok">1.000</span>    14      1.000
+
+  <span class="ok">gate passed</span>`,
+
+selftest:`<span class="p">$ python evals/w2/run_gate.py --selftest</span>
+
+  selftest: the known-bad case <span class="no">FAILED</span> as it must
+    - safe_refusal: <span class="no">0.000</span> is below its floor of 1.00 (1 applicable cases)
+
+  <span class="p">exit=0</span>  <span class="p"># passes only because the bad case failed</span>`,
+
+smoke:`<span class="p">$ python tools/live_smoke.py</span>
+live smoke against claude-haiku-4-5
+
+  <span class="ok">ok</span>    anthropic: vision extraction      5 results read
+  <span class="ok">ok</span>    anthropic: supervisor routing     next=retrieve
+  <span class="ok">ok</span>    anthropic: answer plan            46 chars of plan JSON
+  <span class="ok">ok</span>    voyage: embed + rerank            embed 512d, rerank top=0.633
+
+  <span class="ok">4/4 live paths accepted</span>`,
+
+bug:`<span class="p">$ # the request the agent was actually sending, all week</span>
+output_config = {"type": "json_schema", "schema": {...}}
+
+<span class="no">HTTP 400  output_config.type: Extra inputs are not permitted</span>
+
+<span class="p">$ # what the API wanted</span>
+output_config = {<span class="hi">"format"</span>: {"type": "json_schema", "schema": {...}}}
+
+<span class="p">$ # meanwhile, on every run:</span>
+399 passed · 55 gated cases <span class="ok">green</span> · holdout <span class="ok">1.000</span>`,
+
+pipeline:`<span class="p">$ glab ci status</span>
+<span class="ok">(success)</span> 00m 04s   test     cases:wellformed
+<span class="ok">(success)</span> 00m 39s   test     agent:tests
+<span class="ok">(success)</span> 00m 54s   test     agent:ships-standalone
+<span class="ok">(success)</span> 00m 35s   gate     agent:gate
+<span class="ok">(success)</span> 00m 28s   deploy   agent:deploy
+<span class="ok">(success)</span> 00m 44s   deploy   alerts:deploy
+<span class="ok">(success)</span> 00m 10s   verify   agent:verify
+(manual)  not started  deploy   openemr:deploy
+
+Pipeline state: <span class="ok">success</span>`,
+
+version:`<span class="p">$ curl -s $AGENT/version</span>
+{
+  "commit": "2835547eee7af880abaa06b1787f9bfc28945459",
+  "ref": "main",
+  "built_at": "2026-09-24T01:37:18Z",
+  "source": "ci"
+}
+
+<span class="p">$ curl -s $AGENT/ready</span>
+{"ready":true,"checks":{"langfuse":"ok","anthropic":"ok",
+                        "openemr_fhir":"ok","ocr":"ok"}}`,
+};
+
+const SLIDES = [
+{
+  id:"title", t:20,
+  eyebrow:"Gauntlet AgentForge · Week 2",
+  h1:"Evidence over confidence",
+  sub:"A multimodal agent that reads clinical documents, retrieves guideline evidence, routes work across a small agent graph — and proves none of it hallucinated.",
+  stat:[["399","tests"],["55","gated cases"],["8","boolean rubrics"],["4","live paths"]],
+  script:"This is a clinical co-pilot, but almost nothing I'm about to show you is about medicine. It's about a harder engineering problem: <em>how do you ship an agent when the model is confident and you aren't?</em> Everything here exists to answer that.",
+  cue:"Everything here exists to answer that.",
+  doing:"Open on the title slide. Don't linger — the interesting part is slide two."
+},
+{
+  id:"brief", t:18,
+  eyebrow:"The assignment",
+  h2:"Five requirements, one theme",
+  pts:[
+    "<b>Two document types</b> — <code>lab_pdf</code> and <code>intake_form</code> — strict schemas, a citation on every fact",
+    "<b>Hybrid RAG</b> — keyword plus vector, with a reranker",
+    "<b>Supervisor plus two workers</b>, handoffs logged and inspectable",
+    "<b>A 50-case eval gate</b> with boolean rubrics that blocks regressions in CI",
+    "<b>A deployed, observable demo</b>"
+  ],
+  quote:"The stated gate: a working demo that cannot block regressions has not met the standard.",
+  script:"Five requirements. Read them together and they're all the same requirement — <em>prove it</em>. The spec says it outright: a working demo that can't block a regression hasn't met the standard. So I built the gate first and the features second.",
+  cue:"...built the gate first and the features second.",
+  doing:"Point at the quote as you read it."
+},
+{
+  id:"problem", t:22, cut:true,
+  eyebrow:"The hard problem",
+  h2:"A wrong answer with a citation is worse than no answer",
+  pts:[
+    "A vision model will read a smudged form well — and place a bounding box badly",
+    "A box that drifts makes a <b>wrong value look better evidenced</b> than an honest gap",
+    "Retrieval always returns something, even when nothing is relevant",
+    "So the whole design is about <b>where evidence comes from</b>, not how good the model is"
+  ],
+  script:"Here's the trap. If I ask a vision model for a value <em>and</em> its coordinates, it'll give me both, and the coordinates will be slightly off. Now a wrong value has a box drawn around it — it looks <em>better</em> evidenced than an honest gap. I'd have built a machine for manufacturing false confidence.",
+  cue:"...a machine for manufacturing false confidence.",
+  doing:"This is the thesis of the whole talk. Slow down here."
+},
+{
+  id:"split", t:26,
+  eyebrow:"Capability 1 · Document ingestion",
+  h2:"The model says what. The page says where.",
+  pts:[
+    "<code>read_document()</code> — one vision call, strict schema. Returns values, page numbers, printed labels",
+    "The schema it's constrained to has <b>no bbox field at all</b> — not optional, absent",
+    "<code>assemble()</code> — pure code, no model. Locates each value using the page's own word coordinates",
+    "One match → box. Zero or many → <b>no box, and it says so</b>"
+  ],
+  shot:["assets/panel-boxes.png","Co-Pilot panel after attaching intake_full.pdf — extracted values listed on the right, with bounding boxes drawn over the matching text on the page image."],
+  quote:"The model can't supply its own evidence, because the schema has nowhere to put it.",
+  script:"So I split it. The model reads, and is never asked for a coordinate — the schema literally has no box field. Then pure code finds that value in the page's own word positions. One match, you get a box. Ambiguous, you get nothing and we say so.",
+  cue:"...you get nothing and we say so.",
+  doing:"Emphasise 'not optional — absent'. That distinction is the design."
+},
+{
+  id:"honest", t:26,
+  eyebrow:"Capability 1 · The honest gap",
+  h2:"The row that proves the design",
+  pts:[
+    "A lab row prints <code>Potassium 5.1 mmol/L (reference 3.5 - 5.1)</code>",
+    "<code>5.1</code> appears <b>twice</b> — once as the result, once as the range bound",
+    "The page genuinely cannot say which one the model meant",
+    "So the panel renders: <b>extracted, could not be located on the page</b>"
+  ],
+  shot:["assets/panel-unlocated.png","Co-Pilot panel showing one extracted value WITHOUT a bounding box, with the 'could not be located' label visible."],
+  script:"This is my favourite failure. That row prints a result and a reference range that share a number. The page can't disambiguate — so instead of drawing a confident box around possibly the wrong ink, it admits it. <em>Losing a box is fine. Drawing the wrong one is not.</em>",
+  cue:"Losing a box is fine. Drawing the wrong one is not.",
+  doing:"Point at the un-boxed row on screen. Pause after the last line."
+},
+{
+  id:"rag", t:22,
+  eyebrow:"Capability 2 · Hybrid retrieval",
+  h2:"Two searches, fused, then reranked — with a floor",
+  pts:[
+    "<b>BM25</b> catches exact terms; <b>dense vectors</b> (512-d) catch rephrasings",
+    "<b>Reciprocal rank fusion</b> merges them by position, so no score calibration is needed",
+    "A <b>cross-encoder</b> reranks the survivors — it reads query and chunk together",
+    "<b>Floor at 0.50</b>, measured: real hits scored <b>0.516–0.695</b>, a miss scored <b>0.475</b>"
+  ],
+  quote:"A search engine always returns something. The floor is what turns 'something' into 'nothing, and I'll say so'.",
+  script:"Hybrid because the two searches fail differently — keyword misses synonyms, vectors fuzz exact drug names. I fuse by rank, not score, so nothing needs calibrating. Then the floor. That 0.50 isn't a vibe — real hits measured 0.516 up to 0.695, and a question the corpus can't answer measured 0.475.",
+  cue:"...a question the corpus can't answer measured 0.475.",
+  doing:"The measured numbers are the point. Say them precisely."
+},
+{
+  id:"graph", t:26,
+  eyebrow:"Capability 3 · Agent graph",
+  h2:"A supervisor you can audit, and falsify",
+  pts:[
+    "One supervisor, two workers — <b>intake-extractor</b> and <b>evidence-retriever</b>",
+    "Routing reasons are <b>enum codes</b>, not model prose — countable, and PHI-free",
+    "The supervisor sees <b>counts and flags, never values</b>",
+    "<code>deterministic_next()</code> — a plain rule — runs as fallback, spec, and <b>counterfactual</b>",
+    "Loops are <b>bounded in code</b>: extract retries 3×, retrieval reformulates <b>once</b> from the document's own quotes, then stops"
+  ],
+  shot:["assets/panel-answer.png","An answered question in the panel — cited lines, the guideline evidence under its own heading, and the routing/handoff flags visible on the response."],
+  quote:"Its divergence from the rule is measured. If that comes back zero, I delete the supervisor and ship the rule.",
+  script:"The listed pitfall was letting the supervisor become a black box. So every decision returns an enum code on the response, and it only ever sees counts — never patient values. And there's a plain deterministic rule that shadows it. If the LLM never diverges from the rule, the LLM isn't earning its place.",
+  cue:"...the LLM isn't earning its place.",
+  doing:"This is the strongest architecture answer you have. Land it."
+},
+{
+  id:"gate", t:20,
+  eyebrow:"Capability 4 · The eval gate",
+  h2:"Eight boolean rubrics. No ratings.",
+  rub:[["schema_valid","0.95"],["citation_present","1.00"],["factually_consistent","0.90"],["safe_refusal","1.00"],["no_phi_in_logs","1.00"],["no_unapproved_write","1.00"],["evidence_grounded","1.00"],["value_located","0.90"]],
+  pts:["Plus <code>MAX_REGRESSION = 0.05</code> — no category may drop 5% against a committed baseline, even above its floor"],
+  script:"Boolean, not one-to-ten — because 'citation quality is six out of ten' isn't actionable, and <code>citation_present: false</code> is. Several floors are at one-point-zero: if PHI reaches a log even once, the build fails. That's a judgement encoded as a number.",
+  cue:"That's a judgement encoded as a number.",
+  doing:"Let them read the table. Don't narrate every row."
+},
+{
+  id:"gaterun", t:18, cut:true,
+  eyebrow:"Capability 4 · Live",
+  h2:"Fifty-five cases, offline, in seconds",
+  term:"gate",
+  cap:"Real gate output. No network, no API key — it replays <b>fixture</b> responses keyed on a real surface hash.",
+  script:"Fifty-five cases, all blocking, no network, no API key. And I'll be precise: those are <em>fixture</em> responses with real surface keys — not captured Claude output. That limits what the gate proves to pipeline logic, and it's why a five-percent threshold means something instead of measuring sampling noise.",
+  cue:"...instead of measuring sampling noise.",
+  doing:"Run this live if you can. If not, the captured output is real."
+},
+{
+  id:"redgate", t:22,
+  eyebrow:"Capability 4 · Proving it can fail",
+  h2:"A gate that cannot go red is not a gate",
+  term:"selftest",
+  cap:"--selftest passes ONLY because the known-bad case failed.",
+  pts:["Recordings are keyed on a hash of the <b>model-facing surface</b> — prompt, model, tools, schema","Edit the prompt and every case is a <b>cache miss</b>, and a miss is a hard failure, never a silent pass"],
+  script:"And it can prove it goes red. There's a deliberately broken case whose only job is to fail — this command passes <em>only</em> if that case fails. Change the system prompt and every recording becomes a cache miss, and a miss is a hard failure. You can't quietly edit a prompt and keep a green build.",
+  cue:"You can't quietly edit a prompt and keep a green build.",
+  doing:"This directly answers the grader's 'we will introduce a regression' test."
+},
+{
+  id:"judge", t:26,
+  eyebrow:"Capability 4 · LLM as judge",
+  h2:"The judge is calibrated before it's trusted",
+  stat:[["0.95","agreement"],["0.90","Cohen's κ"],["0.909","recall on false"],["20","hand labels"]],
+  pts:[
+    "<b>Kappa, not correlation</b> — the rubric is boolean, and agreement alone flatters a lazy judge",
+    "<b>Recall on <i>false</i> reported separately</b> — missing a false waves through an ungrounded claim",
+    "Below any floor the judge <b>doesn't gate at all</b> and the rubric reports <code>n/a</code>",
+    "<b>n=20, one labeller</b> — read κ 0.90 as clear of the 0.60 floor, not as a point estimate"
+  ],
+  quote:"An uncalibrated judge producing a number is worse than no number — because the number looks like evidence.",
+  script:"One rubric needs a model to grade it, so the judge gets graded first — against twenty examples I labelled by hand. Kappa rather than correlation, because if seventeen of twenty are 'consistent', a judge that always says consistent scores eighty-five percent while being useless. Kappa corrects for that.",
+  cue:"Kappa corrects for that.",
+  doing:"If asked why kappa: agreement alone rewards a constant answer."
+},
+{
+  id:"ace", t:22, cut:true,
+  eyebrow:"Capability 4 · The disagreement I kept",
+  h2:"True in the world, unsupported by the source",
+  pts:[
+    "Source says only: <code>lisinopril 10mg daily</code>",
+    "Claim: <i>“the patient is on an ACE inhibitor”</i> — which is <b>true</b>",
+    "I labelled it <b>false</b>. The judge said true. That's the one disagreement.",
+    "Documented, not tuned away"
+  ],
+  quote:"A judge that accepts outside knowledge will accept an invented value that merely looks reasonable.",
+  script:"Here's the example that defines the rubric. Lisinopril <em>is</em> an ACE inhibitor — the claim is true. But it isn't in the source, so I marked it unsupported. The judge disagreed. I kept the disagreement in the file rather than tuning it away, because the moment a judge accepts outside knowledge, it'll accept a plausible invented number.",
+  cue:"...it'll accept a plausible invented number.",
+  doing:"Expect an interviewer to probe this. It's your best answer on grading."
+},
+{
+  id:"collapse", t:22, cut:true,
+  eyebrow:"War story 1",
+  h2:"The gate passed while measuring nothing",
+  pts:[
+    "An edit of mine left the tally lines dead after a <code>continue</code>",
+    "Every rubric reported <code>n/a</code>, zero applicable cases — <b>and the gate said passed</b>",
+    "Nothing was below a floor. Nothing was above one either.",
+    "Fix: a <b>coverage-collapse check</b> — fail when a category that had baseline cases has none"
+  ],
+  quote:"A suite that blocks nothing is a dashboard. A suite measuring nothing is the same thing wearing a green tick.",
+  script:"First war story. I broke the scoring loop, and every rubric came back n/a with zero cases — and the gate still reported passed. Nothing was below a floor, because nothing was measured. So now the build fails if a category that used to have cases suddenly has none.",
+  cue:"...suddenly has none.",
+  doing:"Read the quote off the slide. It's the line people remember."
+},
+{
+  id:"outputconfig", t:30,
+  eyebrow:"War story 2 · The one that matters",
+  h2:"Green everywhere. Broken in production. For a week.",
+  term:"bug",
+  cap:"One missing wrapper key. Vision extraction and supervisor routing both dead against the live API.",
+  script:"And the big one. Week two's core feature — reading documents — returned HTTP 400 on <em>every</em> real call, for a week. One missing wrapper key. Meanwhile 399 tests, 55 gated cases and a holdout all passed. Because the gate replays recordings and never makes a call. My suite proved the <em>logic</em> was right against a frozen model, and nothing proved the <em>requests</em> were still ones the API would accept.",
+  cue:"...still ones the API would accept.",
+  doing:"This is the climax. Take your time. Do not rush the last sentence."
+},
+{
+  id:"smoke", t:22,
+  eyebrow:"The fix, and the lesson",
+  h2:"Two different properties. Neither substitutes for the other.",
+  term:"smoke",
+  cap:"live_smoke.py — one real call per external path. Asserts accepted and parseable, never what came back.",
+  pts:["The gate proves <b>logic</b> against a frozen model — deliberately offline","<code>live_smoke</code> proves the <b>requests</b> are still accepted — deliberately online","Content is the gate's job. Acceptance is the API's."],
+  script:"So I wrote the check that was missing. One real call down each external path, asserting only that it's accepted and parseable — never what it returned, because that's the gate's job. Costs a few cents. It's the thing to run before recording a demo.",
+  cue:"...before recording a demo.",
+  doing:"Nice place for a small laugh — you're running it before this demo."
+},
+{
+  id:"ship", t:22,
+  eyebrow:"Capability 5 · Shipping",
+  h2:"CI that deploys, then checks what it deployed",
+  term:"pipeline",
+  pts:[
+    "<b>Path-filtered monorepo</b> — a commit touching <code>agent/</code> never rebuilds OpenEMR",
+    "<code>agent:verify</code> asserts the <b>running build reports the commit CI just deployed</b>",
+    "<code>/health</code> and <code>/ready</code> answer 200 on <b>any</b> build — so they can't detect a stale deploy",
+    "Per encounter: tool sequence, latency per step, tokens, cost, retrieval hits, extraction confidence — <b>enum codes and counts, never PHI</b>"
+  ],
+  script:"Eight jobs, four stages, path-filtered so each app only rebuilds when its own files change. And the last job is the one I'd argue for: after deploying, it asks the running service which commit it is. Health checks answer two-hundred on any build — they can't tell you a deploy silently didn't land.",
+  cue:"...a deploy silently didn't land.",
+  doing:"Screenshot or live glab output both work here."
+},
+{
+  id:"close", t:22,
+  eyebrow:"Close",
+  h1:"What I'd defend, and what I'd fix",
+  grid:[
+    ["Measured", "p50 <b>2.99s</b>, p95 <b>4.11s</b> ingestion over 24 real runs · judge κ <b>0.90</b> · holdout <b>1.000</b>, never tuned against"],
+    ["Honest gaps", "Recordings are fixtures with real surface keys — not live Claude output, and the docs say so. n=24 is a thin tail. Judge calibrated on 20 examples."]
+  ],
+  quote:"The best version of this project is narrower than the spec asked for, and stronger because of it.",
+  script:"So: measured numbers, not vibes. And the gaps are in the docs, not hidden — the recordings are fixtures, the p95 rides on one outlier, the judge has twenty labels. Next week I'd re-record against live Claude and persist the review queue. <em>Narrower than the spec, and stronger for it.</em>",
+  cue:"Narrower than the spec, and stronger for it.",
+  doing:"End here. Don't add a summary slide — this is the summary."
+}
+];
+
+const IV = [
+["Architecture", [
+  ["Why doesn't the vision model return bounding boxes?",
+   "Because a drifting box makes a wrong value look better evidenced than an honest gap. The schema the model is constrained to has no bbox field at all — not optional, absent — so it structurally cannot supply its own evidence. The server locates each value in the page's own word coordinates, and when that's ambiguous it renders 'could not be located' instead of guessing.",
+   "'Vision models aren't accurate at coordinates.' True but shallow — it doesn't explain what you did about it or why the failure mode matters.",
+   "So what happens when a value genuinely appears twice on the page?"],
+  ["How does locate() disambiguate a value that appears more than once?",
+   "It filters candidates by the label the model reported — same row, to the right of the label text. The label is authoritative: if the filter leaves zero candidates, we return no box rather than falling back. The any-match fallback is the tempting version precisely because it raises the located rate — and it is exactly what attaches potassium's box to a creatinine value. The guard is the whole point of the module.",
+   "'We take the first match.' That's the bug I shipped and then fixed.",
+   "Why is losing a box acceptable but a wrong box isn't?"],
+  ["Why are lab values stored as strings rather than numbers?",
+   "Because '<0.01', 'negative' and 'trace' are all real lab results. Coercing to float either throws or silently invents precision. The normalizer also deliberately keeps the full stop while stripping other edge punctuation, since the dot carries meaning in 0.9 and <0.01.",
+   "'For flexibility.' Vague — the interviewer wants the specific values that break a float.",
+   "What else did normalization have to handle?"]
+]],
+["Evaluation & judges", [
+  ["Why boolean rubrics instead of a 1–10 score?",
+   "Because 'citation quality is 6/10' isn't actionable and citation_present: false is. Booleans also make the floors meaningful — several of mine are 1.00, meaning a single PHI leak into a log fails the build. You can't express that as a rating.",
+   "'Booleans are simpler.' Misses that the point is actionability and hard floors.",
+   "How did you pick which rubrics get a 1.00 floor?"],
+  ["How do you know your LLM judge is any good?",
+   "It's calibrated against 20 hand-labelled examples before it's allowed to gate: agreement 0.95, Cohen's kappa 0.90, recall-on-false 0.909. Below any floor it doesn't gate at all and the rubric reports n/a with a reason. An uncalibrated judge silently producing a number is worse than no number, because the number looks like evidence.",
+   "'I spot-checked it and it looked right.' No measurement, no floors, no failure mode.",
+   "Why kappa rather than correlation or plain accuracy?"],
+  ["Why Cohen's kappa specifically?",
+   "The rubric is boolean, so correlation is awkward and unstable at n=20. Raw agreement flatters a lazy judge — if 17 of 20 examples are 'consistent', a judge that always answers consistent scores 0.85 while being useless. Kappa measures agreement above what chance would produce given each rater's rate of saying yes.",
+   "'Kappa is the standard metric for agreement.' True, but doesn't show you understand what it corrects for.",
+   "And why report recall on false separately?"],
+  ["Your judge disagreed with you on one example. Why keep it?",
+   "The source said only 'lisinopril 10mg daily' and the claim was 'the patient is on an ACE inhibitor' — true in the world, absent from the source. I labelled it unsupported; the judge said supported. I documented it rather than tuning it away, because the moment a judge accepts outside knowledge it will accept an invented lab value that happens to look reasonable.",
+   "'It's an edge case, so I excluded it.' Excluding your hardest example is how calibration becomes theatre.",
+   "Would you fix it by changing the prompt or the rubric?"],
+  ["[Adversarial] Your recordings are fixtures, not real model output. Doesn't that make the gate meaningless?",
+   "It limits what the gate proves, and the docs say so explicitly. The recordings carry real surface keys computed from the exact kwargs the app assembles, so the keying rule is exercised for real — but the responses are fixtures. That means the gate proves the pipeline's logic and its failure handling, not model quality. Re-recording against live Claude is priced at about $1.50 and is the first thing I'd do with another day.",
+   "'They're realistic enough.' Overclaiming here is exactly what the interviewer is testing for.",
+   "So what did that limitation actually cost you?"]
+]],
+["Agent orchestration", [
+  ["Do you actually need an LLM supervisor, or would a rule do?",
+   "Possibly a rule. That's why the rule exists: deterministic_next() runs as the fallback, as the readable spec, and as a counterfactual on every request, so the supervisor's divergence from it is measured. If divergence comes back at zero, I'd demote the supervisor and ship the rule. I made my own architecture falsifiable rather than assuming it.",
+   "'Multi-agent systems handle complexity better.' Unfalsifiable and the interviewer will push straight through it.",
+   "Have you actually looked at the divergence number?"],
+  ["How do you keep the supervisor from becoming a black box?",
+   "Three things. Routing reasons are enum codes, not model prose, so they're countable and can't carry PHI. Every decision is returned on the response, not just written to a trace — a reason nobody can see is a reason nobody checks. And state_shape() passes counts and flags only, so the supervisor makes a structural decision and never sees a patient value.",
+   "'We log the handoffs.' Logging to a file nobody reads isn't inspectability.",
+   "Why enums rather than a free-text reason?"],
+  ["What stops the graph looping forever?",
+   "Iteration limits in code, not prompt instructions. Workers loop only while looping can still change the answer — if extraction is exhausted or evidence stays below the floor, it stops. Termination is a code property, not something I asked the model to respect.",
+   "'The prompt tells it to stop when done.' A model instruction is not a termination guarantee.",
+   "What's the budget impact if that guard fails?"]
+]],
+["Testing & failure modes", [
+  ["What can your test suite not catch?",
+   "Whether the requests the agent builds are still ones the API accepts. The gate replays recordings and never makes a call — deliberately, because live calls would make a 5% threshold measure sampling noise. That gap cost me a week: output_config needed a 'format' wrapper, so vision extraction and supervisor routing both returned HTTP 400 on every real call while 399 tests, 55 gated cases and a holdout all passed. live_smoke.py closes it with one real call per external path.",
+   "'Good coverage, nothing major.' The interviewer is specifically hunting for whether you know your own blind spot.",
+   "How would you have caught it sooner?"],
+  ["Tell me about a bug that your tests couldn't have caught.",
+   "The scope allowlist. I widened the set of OAuth scopes the agent would accept back, and never added them to what it requests — and OpenEMR grants the intersection. So every document write would have 403'd in production while the scope tests passed, because those tests fabricated a grant that already contained the scopes. The new test asserts the authorize URL itself.",
+   "Describing a simple logic bug that a unit test did catch — it doesn't demonstrate anything about test design.",
+   "What's the general lesson there?"],
+  ["Why is a holdout set worth having if you already have 55 gated cases?",
+   "Because once you've iterated against a set, your score partly reflects fitting that set. The holdout is 10 cases with different documents and phrasings that I never tuned against, checked against floors only rather than the baseline. It scores 1.000 — and that number means something precisely because nobody optimised for it.",
+   "'More test cases is better coverage.' Misses that the value is the absence of tuning, not the count.",
+   "What would you conclude if the holdout dropped to 0.8?"],
+  ["[Adversarial] n=24 for your latency p95 is very thin. Why should I believe it?",
+   "You shouldn't treat it as a design target, and I don't. p50 is 2.99 seconds and is stable; the p95 of 4.11 rides almost entirely on one 14.4-second outlier, and at n=24 there isn't enough data for a real tail. I'd call it 'occasionally slow' and say the honest number is the median. The docs state the sample size next to the figure for exactly this reason.",
+   "Quoting the p95 as though it were a reliable SLO.",
+   "What would it take to get a number you'd defend?"]
+]],
+["Production & CI/CD", [
+  ["How do you know what's actually deployed?",
+   "A /version endpoint that reports the commit the running image was built from — the deploy job generates it into the build context and it's never committed, because a checked-in version constant goes stale the moment someone forgets to bump it. agent:verify then asserts the running build reports the commit the pipeline just deployed. /health and /ready answer 200 on any build, so neither can detect a stale deploy.",
+   "'We check /health after deploying.' That's the thing that was green while serving a week-old image.",
+   "What happens if the rollout is slower than the check?"],
+  ["How does the pipeline avoid rebuilding everything on every commit?",
+   "rules:changes per app. It's a monorepo with two deployable apps — the agent and a skinned OpenEMR — so a commit touching agent/ never rebuilds OpenEMR, and a docs-only commit deploys nothing. evals/ sits in the agent's filter on purpose: the gate scores the agent, so an eval-only change still has to prove the agent passes it.",
+   "'We use path filters.' Fine, but the interesting decision is why evals/ is grouped with the agent.",
+   "What breaks if you get the filter wrong?"],
+  ["What's the most dangerous deploy bug you hit?",
+   "Railway silently falling back to its own auto-builder when the Dockerfile wasn't at the root of the uploaded context. It would have produced a service that boots healthy — green /health, green /ready — but without tesseract-ocr, so every scanned page would return 'could not be located' for every value. The demo would have looked like a design choice instead of a broken build. Now railway.json pins the builder and /ready reports ocr as a capability.",
+   "Naming a loud failure. The point of this question is whether you can identify a silent one.",
+   "Why report OCR on /ready but not fail readiness on it?"],
+  ["Why does /ready report OCR without failing on it?",
+   "Because a PDF with a text layer still extracts correctly without tesseract — the service is genuinely ready. Failing readiness would turn a degradation into an outage. So it's a capability report, and the test asserts the invariant directly: losing OCR changes the report and nothing else.",
+   "'It's just informational.' Misses that the choice between degradation and outage was deliberate.",
+   "How would you alert on it then?"]
+]]
+];
+
+/* ============================ RENDER ============================ */
+const $=(s,r=document)=>r.querySelector(s);
+const stage=$("#stage"), notesEl=$("#notes"), dotsEl=$("#dots");
+let i=0, showNotes=true, t0=null, tick=null;
+
+function shotHTML(src,desc){
+  return `<div class="shot"><img src="${src}" alt="" onerror="this.parentNode.innerHTML='&lt;div class=\\'ph\\'&gt;&lt;div class=\\'f\\'&gt;${src}&lt;/div&gt;&lt;div class=\\'d\\'&gt;${desc.replace(/'/g,"&#39;")}&lt;/div&gt;&lt;/div&gt;'"></div>`;
+}
+
+function render(){
+  const s=SLIDES[i];
+  let h=`<div class="deck"><p class="eyebrow">${s.eyebrow}<span class="tick">${s.t}s</span>${s.cut?'<span class="tick" style="color:var(--fail)">optional — cut for 5 min</span>':''}</p>`;
+  if(s.h1) h+=`<h1>${s.h1}</h1>`;
+  if(s.h2) h+=`<h2>${s.h2}</h2>`;
+  if(s.sub) h+=`<p class="sub">${s.sub}</p>`;
+  if(s.stat) h+=`<div class="stat">${s.stat.map(([n,l])=>`<div><div class="n">${n}</div><div class="l">${l}</div></div>`).join("")}</div>`;
+  if(s.rub) h+=`<div class="wrap-x"><table class="rub"><thead><tr><th>Rubric</th><th>Floor</th></tr></thead><tbody>${s.rub.map(([k,v])=>`<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`).join("")}</tbody></table></div>`;
+  if(s.term) h+=`<div class="wrap-x"><pre class="term">${T[s.term]}</pre></div>${s.cap?`<p class="cap">${s.cap}</p>`:""}`;
+  if(s.shot) h+=shotHTML(s.shot[0],s.shot[1]);
+  if(s.pts) h+=`<ul class="pts">${s.pts.map(p=>`<li>${p}</li>`).join("")}</ul>`;
+  if(s.grid) h+=`<div class="grid2">${s.grid.map(([k,v])=>`<div><p class="eyebrow" style="margin-bottom:7px">${k}</p><p style="margin:0;color:var(--ink-2);font-size:15.5px;line-height:1.55">${v}</p></div>`).join("")}</div>`;
+  if(s.quote) h+=`<p class="quote">${s.quote}</p>`;
+  h+=`</div>`;
+  stage.innerHTML=h;
+
+  notesEl.hidden=!showNotes;
+  notesEl.innerHTML=`<h3>Read aloud — slide ${i+1} · ${s.t}s</h3>
+    <p class="script">${s.script}</p>
+    <div class="cue"><span class="tag">Click after</span><span class="txt">“${s.cue}”</span></div>
+    ${s.doing?`<p class="doing"><b>On screen:</b> ${s.doing}</p>`:""}`;
+
+  $("#count").textContent=`${i+1} / ${SLIDES.length}`;
+  $("#bar i").style.width=((i+1)/SLIDES.length*100)+"%";
+  [...dotsEl.children].forEach((d,n)=>d.setAttribute("aria-current",n===i?"true":"false"));
+  $("#bPrev").disabled=i===0; $("#bNext").disabled=i===SLIDES.length-1;
+  window.scrollTo({top:0,behavior:"instant"});
+}
+
+SLIDES.forEach((s,n)=>{
+  const b=document.createElement("button");
+  b.type="button"; b.title=`${n+1}. ${s.h1||s.h2}`;
+  b.addEventListener("click",()=>{i=n;render()});
+  dotsEl.appendChild(b);
+});
+
+function go(d){ const n=i+d; if(n>=0&&n<SLIDES.length){i=n;render();} }
+
+/* timer */
+const target=SLIDES.filter(s=>!s.cut).reduce((a,s)=>a+s.t,0);
+const targetFull=SLIDES.reduce((a,s)=>a+s.t,0);
+const fmt=n=>`${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`;
+function startClock(){
+  if(tick) return;
+  t0=performance.now();
+  tick=setInterval(()=>{
+    const s=Math.floor((performance.now()-t0)/1000);
+    const el=$("#clock");
+    el.textContent=`${fmt(s)} / ${fmt(target)} core · ${fmt(targetFull)} full`;
+    el.classList.toggle("over", s>target);
+  },1000);
+}
+$("#bNext").addEventListener("click",()=>{startClock();go(1)});
+$("#bPrev").addEventListener("click",()=>go(-1));
+$("#bNotes").addEventListener("click",e=>{showNotes=!showNotes;e.currentTarget.setAttribute("aria-pressed",showNotes);render()});
+$("#bTheme").addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");
+  document.documentElement.setAttribute("data-theme",next);
+});
+
+/* interview overlay */
+const iv=$("#iv");
+iv.innerHTML=`<div class="inner"><header><h2>Interview prep</h2><span class="spacer" style="flex:1"></span>
+  <button class="ctl" id="ivClose">Close</button></header>
+  ${IV.map(([g,qs])=>`<section class="qgroup"><h3>${g}</h3>${qs.map(([q,good,bad,probe])=>`
+    <details class="q"><summary>${q}</summary><div class="body">
+      <div class="ans good"><span class="lab">Strong answer</span><p>${good}</p></div>
+      <div class="ans bad"><span class="lab">Trap answer</span><p>${bad}</p></div>
+      <div class="ans probe"><span class="lab">Likely follow-up</span><p>${probe}</p></div>
+    </div></details>`).join("")}</section>`).join("")}
+  <p class="hint">Press <kbd>I</kbd> or Esc to go back to the deck.</p></div>`;
+function toggleIv(force){
+  const open = force!==undefined?force:iv.hidden;
+  iv.hidden=!open; document.body.style.overflow=open?"hidden":"";
+  $("#bIv").setAttribute("aria-pressed",open);
+}
+$("#bIv").addEventListener("click",()=>toggleIv());
+$("#ivClose").addEventListener("click",()=>toggleIv(false));
+
+document.addEventListener("keydown",e=>{
+  if(e.target.matches("input,textarea")) return;
+  const k=e.key.toLowerCase();
+  if(!iv.hidden){ if(k==="escape"||k==="i") toggleIv(false); return; }
+  if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){e.preventDefault();startClock();go(1)}
+  else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();go(-1)}
+  else if(k==="n"){showNotes=!showNotes;$("#bNotes").setAttribute("aria-pressed",showNotes);render()}
+  else if(k==="i"){toggleIv(true)}
+  else if(k==="t"){$("#bTheme").click()}
+  else if(k==="r"){clearInterval(tick);tick=null;$("#clock").textContent="0:00";$("#clock").classList.remove("over")}
+  else if(k==="home"){i=0;render()}
+  else if(k==="end"){i=SLIDES.length-1;render()}
+});
+
+render();
+</script>
+</body>
+</html>
