@@ -51,16 +51,20 @@ def provenance(citation: Citation) -> str:
     return f"doc={citation.source_id} page={citation.page_or_section} field={citation.field_or_chunk_id}"
 
 
-def derive(extracted: Any, doc: DocumentRef, *, confidence: float = 0.0) -> List[StagedFact]:
+def derive(extracted: Any, doc: DocumentRef, *, patient_id: str, confidence: float = 0.0) -> List[StagedFact]:
     """Turn an extracted document into the facts a clinician will be asked to approve.
 
-    Keyed on (document_id, field_path) so re-ingesting the same document cannot produce a second pending row for
-    the same fact — the PRD's 'without creating duplicate or untraceable records' applies to derived facts, not
-    only to the file."""
+    Keyed on (patient_id, document_id, field_path) so re-ingesting the same document cannot produce a second
+    pending row for the same fact — the PRD's 'without creating duplicate or untraceable records' applies to
+    derived facts, not only to the file.
+
+    patient_id has no default on purpose. Every caller has to say whose facts these are, because a default
+    would put two patients' rows under one key and reintroduce exactly the leak this scoping closes."""
     facts: List[StagedFact] = []
 
     def add(kind: str, payload: Dict[str, str], citation: Citation) -> None:
         facts.append(StagedFact(
+            patient_id=patient_id,
             document_id=doc.document_id, field_path=citation.field_or_chunk_id, fact_kind=kind,
             payload={**payload, "comments": provenance(citation)}, citation=citation,
             confidence=confidence if citation.bbox is not None else min(confidence, 0.5),
@@ -79,38 +83,44 @@ def derive(extracted: Any, doc: DocumentRef, *, confidence: float = 0.0) -> List
 
 
 class StagingStore(Protocol):
+    """Every read names a patient. There is deliberately no way to ask this store for "all pending facts":
+    document_id is a sequential OpenEMR row id, so a queue that can be addressed by document alone can be read
+    and decided by any live session that guesses a number."""
     def put(self, facts: Sequence[StagedFact]) -> int: ...
-    def pending(self, document_id: Optional[str] = None) -> List[StagedFact]: ...
-    def decide(self, document_id: str, field_path: str, status: StagedStatus, who: str) -> Optional[StagedFact]: ...
+    def pending(self, patient_id: str, document_id: Optional[str] = None) -> List[StagedFact]: ...
+    def decide(self, patient_id: str, document_id: str, field_path: str, status: StagedStatus,
+               who: str) -> Optional[StagedFact]: ...
 
 
 class MemoryStagingStore:
     """Keyed exactly as the table is, so behaviour here and in MySQL cannot drift."""
 
     def __init__(self) -> None:
-        self._rows: Dict[Tuple[str, str], StagedFact] = {}
+        self._rows: Dict[Tuple[str, str, str], StagedFact] = {}
 
     def put(self, facts: Sequence[StagedFact]) -> int:
         added = 0
         for f in facts:
-            key = (f.document_id, f.field_path)
+            key = (f.patient_id, f.document_id, f.field_path)
             if key in self._rows:      # idempotent: re-ingest must not resurrect a decision already made
                 continue
             self._rows[key] = f
             added += 1
         return added
 
-    def pending(self, document_id: Optional[str] = None) -> List[StagedFact]:
-        return [f for (doc, _), f in sorted(self._rows.items())
-                if f.status is StagedStatus.pending and (document_id is None or doc == document_id)]
+    def pending(self, patient_id: str, document_id: Optional[str] = None) -> List[StagedFact]:
+        return [f for (pat, doc, _), f in sorted(self._rows.items())
+                if f.status is StagedStatus.pending and pat == patient_id
+                and (document_id is None or doc == document_id)]
 
-    def decide(self, document_id: str, field_path: str, status: StagedStatus, who: str) -> Optional[StagedFact]:
-        row = self._rows.get((document_id, field_path))
+    def decide(self, patient_id: str, document_id: str, field_path: str, status: StagedStatus,
+               who: str) -> Optional[StagedFact]:
+        row = self._rows.get((patient_id, document_id, field_path))
         if row is None or row.status is not StagedStatus.pending:
             return None            # deciding twice is not an error, but it must not overwrite the first decision
         updated = row.model_copy(update={"status": status, "decided_by": who,
                                          "decided_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-        self._rows[(document_id, field_path)] = updated
+        self._rows[(patient_id, document_id, field_path)] = updated
         return updated
 
 
@@ -119,8 +129,13 @@ async def approve(store: StagingStore, client: EmrWriteClient, *, puuid: str, do
     """A clinician accepts a fact: write it to the chart, and only then record the decision.
 
     Order matters. Marking approved before the write succeeds would leave the queue claiming a record reached
-    the chart when it did not, which is the one thing a review queue must never do."""
-    row = next((f for f in store.pending(document_id) if f.field_path == field_path), None)
+    the chart when it did not, which is the one thing a review queue must never do.
+
+    puuid is both the patient written to AND the scope the row is looked up under, and it must stay that way.
+    Reading the row under one patient and writing it under another is precisely the cross-patient write this
+    scoping exists to prevent: the caller's own patient would receive a value extracted from someone else's
+    document."""
+    row = next((f for f in store.pending(puuid, document_id) if f.field_path == field_path), None)
     if row is None:
         return None, None
     if row.fact_kind not in WRITABLE:
@@ -130,17 +145,18 @@ async def approve(store: StagingStore, client: EmrWriteClient, *, puuid: str, do
     res = await client.write_record(puuid, row.fact_kind, dict(row.payload), **ctx)
     if not res.ok:
         return row, res
-    return store.decide(document_id, field_path, StagedStatus.approved, who), res
+    return store.decide(puuid, document_id, field_path, StagedStatus.approved, who), res
 
 
-def reject(store: StagingStore, *, document_id: str, field_path: str, who: str) -> Optional[StagedFact]:
+def reject(store: StagingStore, *, patient_id: str, document_id: str, field_path: str,
+           who: str) -> Optional[StagedFact]:
     """A clinician rejects a fact. Nothing is written, and the row is kept — see the module docstring."""
-    return store.decide(document_id, field_path, StagedStatus.rejected, who)
+    return store.decide(patient_id, document_id, field_path, StagedStatus.rejected, who)
 
 
-def queue_summary(store: StagingStore, document_id: Optional[str] = None) -> Dict[str, int]:
+def queue_summary(store: StagingStore, patient_id: str, document_id: Optional[str] = None) -> Dict[str, int]:
     """Counts only. Safe to log and trace; the values themselves never leave the panel."""
-    rows = store.pending(document_id)
+    rows = store.pending(patient_id, document_id)
     return {"pending": len(rows),
             "located": sum(1 for r in rows if r.citation.bbox is not None),
             "writable": sum(1 for r in rows if r.fact_kind in WRITABLE)}

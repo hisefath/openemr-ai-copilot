@@ -157,12 +157,12 @@ def test_outcome_can_express_a_deadline_expiry():
 def test_a_staged_fact_is_keyed_for_idempotency():
     """Guards: re-ingesting the same document creating a second pending row — the PRD requires round-tripping
     'without creating duplicate or untraceable records'."""
-    assert {"document_id", "field_path"} <= set(StagedFact.model_fields)
+    assert {"patient_id", "document_id", "field_path"} <= set(StagedFact.model_fields)
 
 
 def test_a_staged_fact_starts_pending_and_carries_its_citation():
     """Guards: a fact reaching the chart without a clinician, or reaching it with no trace of where it came from."""
-    f = StagedFact(document_id="987", field_path="allergies[0]", fact_kind="allergy",
+    f = StagedFact(patient_id="pat-1", document_id="987", field_path="allergies[0]", fact_kind="allergy",
                    payload={"title": "Penicillin"}, citation=a_citation(), confidence=0.91)
     assert f.status is StagedStatus.pending and f.decided_by is None and f.citation.source_id == "987"
 
@@ -171,8 +171,8 @@ def test_confidence_outside_zero_to_one_is_rejected():
     """Guards: a confidence the review queue cannot sort or threshold on."""
     for bad in (-0.1, 1.5):
         with pytest.raises(ValidationError):
-            StagedFact(document_id="987", field_path="a[0]", fact_kind="allergy", payload={},
-                       citation=a_citation(), confidence=bad)
+            StagedFact(patient_id="pat-1", document_id="987", field_path="a[0]", fact_kind="allergy",
+                       payload={}, citation=a_citation(), confidence=bad)
 
 
 def test_rejected_is_a_status_not_a_deletion():

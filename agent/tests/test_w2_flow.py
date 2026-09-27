@@ -32,6 +32,11 @@ def _pdf(text: str) -> bytes:
 
 INTAKE_PDF = _pdf("Allergies Penicillin Medications lisinopril Concern cough")
 
+# A second patient the same clinician is also allowed to open. This is not an exotic setup: a SMART launch
+# binds the session to whichever chart it was launched from, so a clinician with two charts open in a working
+# day holds exactly this pair of sessions.
+OTHER_PID = "00000000-0000-4000-8000-00000000beef"
+
 
 def openemr_with_writes(state):
     """Week 1's FHIR mock, plus the standard-API write routes Week 2 needs."""
@@ -84,7 +89,8 @@ SEEN = SeenIntakeForm(
 @pytest.fixture
 def client(monkeypatch):
     for k, v in {"OPENEMR_FHIR_BASE": T.BASE, "PUBLIC_ISSUER": T.BASE, "SMART_CLIENT_ID": "copilot",
-                 "SMART_CLIENT_SECRET": "test-secret", "ALLOW_API_SESSIONS": "true", "EVAL_PATIENT_IDS": T.PID,
+                 "SMART_CLIENT_SECRET": "test-secret", "ALLOW_API_SESSIONS": "true",
+                 "EVAL_PATIENT_IDS": f"{T.PID},{OTHER_PID}",
                  "AGENT_PUBLIC_URL": "http://agent.test", "HMAC_KEY": "test-hmac", "ANTHROPIC_API_KEY": "dummy",
                  "LLM_WARMUP": "false"}.items():
         monkeypatch.setenv(k, v)
@@ -170,6 +176,52 @@ def test_re_uploading_the_same_document_does_not_grow_the_queue(client):
     q = client.get("/api/session/documents/988/facts",
                    headers={"Authorization": f"Bearer {handle}"}).json()
     assert q["summary"]["pending"] == 2
+
+
+def other_patient_session(c) -> str:
+    """A second, entirely valid session belonging to a DIFFERENT patient.
+
+    Prefetch is not awaited as T.open_session does: this session exists only to prove what it cannot reach,
+    and it needs no chart of its own to do that."""
+    r = c.post("/api/sessions", json={"access_token": "a-demo-token-value", "patient_id": OTHER_PID})
+    assert r.status_code == 200, r.text
+    return r.json()["session_handle"]
+
+
+def test_a_session_cannot_read_or_decide_another_patients_document(client):
+    """Guards: a cross-patient read, and a cross-patient WRITE, through the review queue.
+
+    test_every_week_two_route_requires_a_session covers the unauthenticated caller and is documented as
+    covering this too; it does not. A valid session naming someone else's document is a different question,
+    and document_id makes it an easy one to ask: it is OpenEMR's document row id, a small sequential integer,
+    so the caller does not have to guess anything hard."""
+    owner = T.open_session(client)
+    upload(client, owner)
+    owner_h = {"Authorization": f"Bearer {owner}"}
+    intruder_h = {"Authorization": f"Bearer {other_patient_session(client)}"}
+
+    # The rendered page. 404 rather than 403 on purpose: that a document id exists is itself something a
+    # caller working through the integers should not get to learn.
+    assert client.get("/api/session/documents/988/page/1.png", headers=intruder_h).status_code == 404
+
+    # The extracted values. _public() includes payload, so a leak here is the clinical content itself.
+    q = client.get("/api/session/documents/988/facts", headers=intruder_h).json()
+    assert q["facts"] == [] and q["summary"]["pending"] == 0
+
+    field = next(f for f in client.get("/api/session/documents/988/facts", headers=owner_h).json()["facts"]
+                 if f["fact_kind"] == "allergy")["field_path"]
+
+    # The write, which is the one that mattered. puuid came from the session while document_id came from the
+    # URL, so approving here wrote the OWNER's extracted allergy into the INTRUDER's chart.
+    assert client.post("/api/session/documents/988/facts/decision", headers=intruder_h,
+                       json={"field_path": field, "decision": "approve"}).status_code == 404
+    assert "allergy_body" not in client.emr_state, "a chart write happened across patients"
+
+    assert client.post("/api/session/documents/988/facts/decision", headers=intruder_h,
+                       json={"field_path": field, "decision": "reject"}).status_code == 404
+
+    # The owner is unaffected: a refused stranger must not consume or resolve the row.
+    assert client.get("/api/session/documents/988/facts", headers=owner_h).json()["summary"]["pending"] == 2
 
 
 def test_the_page_image_is_served_for_the_overlay(client):

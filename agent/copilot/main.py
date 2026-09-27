@@ -9,7 +9,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import anthropic
 import httpx
@@ -96,7 +96,10 @@ async def lifespan(app: FastAPI):
     # on the question path can reach either of them.
     app.state.emr_write = emr_write.EmrWriteClient(app.state.http, settings.fhir_base, settings.openemr_concurrency)
     app.state.staging = staging.MemoryStagingStore()
-    app.state.pages_cache: Dict[str, Any] = {}      # document_id -> rendered pages, for the citation overlay
+    # (patient_id, document_id) -> rendered pages, for the citation overlay. The patient is in the key rather
+    # than checked at the route: document_id is a sequential OpenEMR row id, so keying on it alone let any
+    # live session fetch another patient's rendered page by guessing a number.
+    app.state.pages_cache: Dict[Tuple[str, str], Any] = {}
     app.state.session_docs: Dict[str, Any] = {}     # session_ref -> the document this session ingested
     app.state.session_resolver = _session            # w2_routes reuses this session check, never its own
     app.state.retriever = _build_retriever(settings)

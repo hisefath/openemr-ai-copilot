@@ -539,8 +539,14 @@ class StagedStatus(str, Enum):
 class StagedFact(BaseModel):
     """A fact extracted from a document, waiting for a clinician.
 
-    Keyed on (document_id, field_path) so re-ingesting the same document cannot create a second row — the PRD
-    requires documents and derived observations to round-trip without duplicates."""
+    Keyed on (patient_id, document_id, field_path) so re-ingesting the same document cannot create a second row
+    — the PRD requires documents and derived observations to round-trip without duplicates.
+
+    patient_id is part of the key, not a field to check later. document_id is OpenEMR's document row id, which
+    is a small sequential integer, so a queue keyed on it alone is readable and decidable by any live session
+    that guesses a number. Making the patient part of the key means a lookup for the wrong patient does not
+    match rather than relying on a guard at each route, which is the kind of check a new route forgets."""
+    patient_id: str = Field(description="The patient this fact was extracted for; scopes every lookup")
     document_id: str
     field_path: str = Field(description="Where in the extracted document this came from, e.g. 'allergies[0]'")
     fact_kind: Literal["allergy", "medication", "problem", "lab"]
