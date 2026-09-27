@@ -29,6 +29,7 @@ from . import rules
 from . import smart
 from . import staging
 from . import verify
+from . import dashboard_routes
 from . import w2_routes
 from .config import Settings
 from .deadline import Deadline
@@ -105,6 +106,15 @@ async def lifespan(app: FastAPI):
         log.warning("AUDIT_DB_HOST not set: audit rows are logged, not stored")
         app.state.audit = audit.FakeAuditWriter()
     app.state.pages = {"patient": smart.load_page(STATIC / "panel.html"), "schedule": smart.load_page(STATIC / "schedule.html")}
+    # The React dashboard's built index.html, if it has been built. Optional on purpose: the agent has to
+    # start on a checkout where `dashboard/` was never npm-installed, and the launch route says so plainly
+    # rather than the process refusing to boot. load_page still asserts the session placeholder is present,
+    # so a build that drops it fails HERE, at startup, not after a clinician has authenticated.
+    dash_index = STATIC / "dashboard" / "index.html"
+    if dash_index.exists():
+        app.state.pages["dashboard"] = smart.load_page(dash_index)
+    else:
+        log.warning("dashboard build absent", extra={"path": str(dash_index)})
     if os.environ.get("LLM_WARMUP", "true").lower() != "false":
         app.state.warmup = asyncio.create_task(_warm_up_structured_output(app.state.llm, settings))
     yield
@@ -133,6 +143,7 @@ def _build_retriever(settings: Settings):
 
 app = FastAPI(title="Clinical Co-Pilot Agent", lifespan=lifespan)
 app.include_router(w2_routes.router)
+app.include_router(dashboard_routes.router)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
@@ -338,6 +349,31 @@ async def schedule_launch(request: Request):
                                                            "Referrer-Policy": "no-referrer"})
 
 
+APP_COOKIE = "__Host-copilot-app"   # which front end the callback should render; see /dashboard/launch
+
+
+@app.get("/dashboard/launch")
+async def dashboard_launch(request: Request, launch: str = "", iss: str = "", aud: str = ""):
+    """Same SMART launch as /smart/launch, rendering the React dashboard instead of the Week 1 panel.
+
+    The target app rides in a short-lived __Host- cookie rather than in the OAuth `state`, so the authorize
+    URL, the PKCE binding and the replay guard are byte-identical to the flow that the eval gate already
+    covers. A second auth path is the last thing this project needs."""
+    if "dashboard" not in request.app.state.pages:
+        raise HTTPException(503, "dashboard_not_built: run `npm run build` in dashboard/ and redeploy.")
+    try:
+        url = smart.build_authorize_url(request.app.state.settings, request.app.state.states, launch, iss, aud or iss)
+    except smart.ValidationFailed as e:
+        log.warning("launch rejected", extra={"reason": e.reason, "app": "dashboard"})
+        raise HTTPException(400, f"{e.reason}: This launch can't be completed. Relaunch from the patient chart.")
+    except smart.UpstreamUnavailable as e:
+        raise HTTPException(503, f"{e.reason}: The Co-Pilot is busy. Try again in a moment.")
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie(APP_COOKIE, "dashboard", max_age=smart.STATE_TTL_S, path="/",
+                        secure=True, httponly=True, samesite="lax")
+    return response
+
+
 @app.get(smart.CALLBACK_PATH)
 async def smart_callback(request: Request, code: str = "", state: str = ""):
     s: Settings = request.app.state.settings
@@ -355,7 +391,13 @@ async def smart_callback(request: Request, code: str = "", state: str = ""):
                            _event(AuditEventType.session_create, session, patient_id=session.patient_id)])
     if session.kind == "patient":
         _start_prefetch(request, session)
-    response = smart.panel_response(s, request.app.state.pages[session.kind], handle)
+    # A dashboard launch renders the React build; anything else renders the Week 1 panel exactly as before.
+    wants_dashboard = (request.cookies.get(APP_COOKIE) == "dashboard"
+                       and session.kind == "patient" and "dashboard" in request.app.state.pages)
+    page_key = "dashboard" if wants_dashboard else session.kind
+    response = smart.panel_response(s, request.app.state.pages[page_key], handle)
+    if request.cookies.get(APP_COOKIE):
+        response.delete_cookie(APP_COOKIE, path="/")
     if session.kind == "schedule":
         response.delete_cookie(smart.STATE_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
     return response
