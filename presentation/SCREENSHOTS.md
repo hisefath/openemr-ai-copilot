@@ -1,19 +1,30 @@
 # Screenshots the deck expects
 
-Three of the five are captured. Drop the rest into `presentation/assets/`. Until a file exists, that slide shows a dashed
-placeholder naming the file and describing the shot — so the deck is presentable right now, and each
-screenshot you add just replaces a placeholder.
+What each deck shows, and where it came from. A slide whose image file is missing degrades to a labelled
+placeholder rather than a broken-image icon, so the deck always presents — but as of now nothing is missing.
 
 Filenames must match exactly.
 
-| File | Status | Slide | What to capture |
-|---|---|---|---|
-| `assets/panel-boxes.png` | **captured** (re-shoot advised) | index 4 · final 3 | Intake form attached, 4 of 4 values located, review queue with Approve/Reject. **The page render itself was 401ing when this was shot** — fixed in `documents.js`/`panel.js`, so re-shoot after a deploy to get the actual bounding boxes on screen. |
-| `assets/panel-answer.png` | **captured** | index 7 · final 5 | Answered question: deterministic HIGH drug–allergy conflict, per-line citations, `not in rule set, not checked`, and the chart-resident prompt injection rendered as data. |
-| `assets/panel-consent.png` | **captured** | index 20 · final 10 | OpenEMR's consent screen for the confidential client — every requested scope enumerated and revocable, `Api:oemr: True` under Identity Information. |
-| `assets/panel-unlocated.png` | **still needed** | index 5 | `lab_degraded.pdf` attached with the dropdown set to **Lab PDF** (not Intake form), showing the value that came back **without** a box: *"extracted, could not be located on the page."* This is the most important shot in the deck. |
-| `assets/dashboard.png` | **still needed** | index 21 | The React dashboard: identity bar plus all six cards — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals. Launch at `/dashboard/launch` from the chart. |
-| `assets/panel-wrongtype.png` | spare | — | A lab PDF read with the *intake* schema: `0 of 0 values located`, `Nothing left to review`. Not wired into either deck; correct behaviour, but not the un-located-row point. |
+| File | Status | Where |
+|---|---|---|
+| `assets/panel-extract.png` | captured | index 4 · final 3 — top crop: `4 of 4 values located on the page` |
+| `assets/panel-review.png` | captured | index 4 · final 3 — bottom crop: the review queue with Approve / Reject |
+| `assets/panel-answer.png` | captured | index 7 · final 5 — the answered question, incl. the chart-resident injection |
+| `assets/panel-consent.png` | captured | index 20 · final 12 — OpenEMR's scope consent screen |
+| `assets/panel-boxes.png` | superseded | the uncropped original; kept, not referenced |
+| `assets/panel-wrongtype.png` | spare | a lab PDF read with the intake schema: `0 of 0 values located` |
+
+**Neither deck has a placeholder left — both are presentable and recordable as they stand.**
+
+Two slides make their point with a drawn figure instead of a screenshot, which is a deliberate choice
+rather than a gap: index 5 (the un-located row) renders the ambiguous lab line with both occurrences of
+`5.1` marked, which shows *why* the value cannot be boxed in a way a screenshot never could; and index 21
+shows the dashboard's identity bar and six cards.
+
+`panel-extract` / `panel-review` are two crops of one capture. The band between them held the page
+render, which was failing at capture time — an `<img src>` cannot send an Authorization header, so the
+endpoint answered 401, and the CSP `default-src 'self'` would then have blocked the blob: fallback too.
+Both are fixed in the working tree but not yet deployed, so the band is cut rather than shown.
 
 Both demo PDFs are already on your Desktop (`intake_full.pdf`, `lab_degraded.pdf`). If you need to
 regenerate them:

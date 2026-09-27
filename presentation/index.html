@@ -156,13 +156,40 @@ pre.term .no{color:#F08878}
 pre.term .hi{color:#E7B571}
 .cap{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:.03em}
 
+
+/* figure slot — a drawn explanation for a slide whose point has no screenshot to make it */
+.fig{margin-top:18px;border:1px solid var(--rule-strong);border-radius:7px;padding:15px 17px}
+.fig-t{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.fig-line{font-family:var(--mono);font-size:clamp(14px,1.7vw,18px);color:var(--ink);letter-spacing:-.01em}
+.fig-line em{font-style:normal;background:var(--signal-soft);color:var(--signal);border-radius:3px;padding:1px 5px;font-weight:700}
+.fig-line .dim{color:var(--muted)}
+.fig-note{font-size:13px;color:var(--muted);margin-top:9px;line-height:1.45}
+.fig-rows{margin-top:13px;display:flex;flex-direction:column;gap:8px}
+.fig-row{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;padding:9px 11px;border-radius:5px;border-left:3px solid var(--rule-strong)}
+.fig-row b{font-family:var(--mono);font-size:13.5px;min-width:13ch}
+.fig-row span{font-size:13px;color:var(--muted)}
+.fig-row .tag{font-family:var(--mono);font-size:11.5px;padding:3px 7px;border-radius:4px;margin-left:auto;color:var(--ink);white-space:normal}
+.fig-row.ok{border-left-color:var(--pass);background:var(--pass-soft)}
+.fig-row.ok .tag{background:var(--pass);color:#fff}
+.fig-row.no{border-left-color:var(--signal);background:var(--signal-soft)}
+.fig-row.no .tag{background:var(--signal);color:#fff}
+.fig-id{padding:9px 11px;border-radius:5px;background:var(--surface-2);margin-bottom:11px}
+.fig-id b{font-size:15px}
+.fig-id span{display:block;font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:3px}
+.fig-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fig-cards div{border:1px solid var(--rule);border-radius:5px;padding:13px 11px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+
 /* screenshot slot */
 .shot{
   border:1px dashed var(--rule-strong); border-radius:9px; background:var(--surface-2);
   min-height:200px; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center;
   overflow:hidden;
 }
+.shot .stack{display:flex; flex-direction:column; gap:7px; max-width:100%}
 .shot img{max-width:100%; max-height:60vh; height:auto; display:block; border-radius:5px}
+/* two crops stacked: halve the cap so the pair still fits one screen */
+.shot .stack:has(img+img) img{max-height:27vh}
+
 .shot .ph{max-width:46ch}
 .shot .ph .f{font-family:var(--mono); font-size:12px; color:var(--signal); margin-bottom:7px; word-break:break-all}
 .shot .ph .d{font-size:13.5px; color:var(--muted); line-height:1.45}
@@ -435,7 +462,7 @@ const SLIDES = [
     "<code>assemble()</code> — pure code, no model. Locates each value in the page's own word coordinates",
     "One match → box. Zero or many → <b>no box, and it says so</b>"
   ],
-  shot:["assets/panel-boxes.png","Co-Pilot panel after attaching intake_full.pdf — extracted values listed, with bounding boxes drawn over the matching text on the page image."],
+  shot:[["assets/panel-extract.png","assets/panel-review.png"],"Two details from the panel after an intake form is attached: 4 of 4 values located on the page, and every value held in a review queue with Approve and Reject before anything reaches the chart."],
   quote:"A field the model cannot fill is a field it cannot get wrong.",
   script:"So I split it. The model reads and is never asked for a coordinate — the schema has no box field. Then pure code finds that value in the page's own word positions. One match, you get a box. Ambiguous, you get nothing and we say so.",
   cue:"...you get nothing and we say so.",
@@ -446,12 +473,11 @@ const SLIDES = [
   eyebrow:"Capability 1 · The honest gap",
   h2:"The row that proves the design",
   pts:[
-    "A lab row prints <code>Potassium 5.1 mmol/L (reference 3.5 - 5.1)</code>",
-    "<code>5.1</code> appears <b>twice</b> — once as the result, once as the range bound",
-    "The page genuinely cannot say which one the model meant",
-    "So the panel renders: <b>extracted, could not be located on the page</b>"
+    "The value is still <b>extracted and still staged for review</b> — only the box is withheld",
+    "A box is a claim about <i>where the evidence is</i>. Ambiguous means there is no such claim to make",
+    "<b>This case is in the eval gate</b>, so a future change that starts guessing a box fails the build"
   ],
-  shot:["assets/panel-unlocated.png","lab_degraded.pdf attached — the one value that came back WITHOUT a box, showing 'extracted, could not be located on the page'."],
+  fig:`<div class="fig-t">What the lab PDF prints</div><div class="fig-line">Potassium <em>5.1</em> mmol/L <span class="dim">(reference 3.5 &ndash; </span><em>5.1</em><span class="dim">)</span></div><div class="fig-note">The same number twice. One is the result, one is the top of the reference range &mdash; and nothing in the page\u2019s word positions says which is which.</div><div class="fig-rows"><div class="fig-row ok"><b>Sodium 138</b><span>one match in the page\u2019s own words</span><span class="tag">boxed</span></div><div class="fig-row no"><b>Potassium 5.1</b><span>two matches, equally good</span><span class="tag">extracted, could not be located on the page</span></div></div>`,
   script:"My favourite failure. That row prints a result and a reference range sharing a number. The page can't disambiguate — so instead of drawing a confident box around possibly the wrong ink, it admits it. <em>Losing a box is fine. Drawing the wrong one is not.</em>",
   cue:"Losing a box is fine. Drawing the wrong one is not.",
   doing:"Point at the un-boxed row. Pause after the last line."
@@ -639,7 +665,7 @@ const SLIDES = [
   id:"dashboard", t:24,
   eyebrow:"Surprise challenge · What shipped",
   h2:"React 19 + TypeScript, and the win is the types",
-  shot:["assets/dashboard.png","The React patient dashboard: identity bar with MRN/DOB/sex/status, and the six cards — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals."],
+  fig:`<div class="fig-t">The React dashboard, as shipped</div><div class="fig-id"><b>Farah Santa Steuber</b><span>MRN 6 &middot; DOB 1981-08-08 &middot; female &middot; active</span></div><div class="fig-cards"><div>Allergies</div><div>Problem List</div><div>Medications</div><div>Prescriptions</div><div>Care Team</div><div>Vitals</div></div><div class="fig-note">Six FHIR searches, one per card, every one issued by the agent acting as the backend-for-frontend. No access token is ever handed to the browser.</div>`,
   pts:[
     "Identity bar plus six cards, live from FHIR R4 · <b>83.3 kB gzipped</b> in total transfer",
     "<b>759 lines</b> of front end across 6 files, against a <b>95-line</b> backend-for-frontend",
@@ -840,7 +866,12 @@ let i=0, showNotes=true, t0=null, tick=null;
 // apostrophe anywhere in the description closed the string early and the fallback silently never ran.
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function shotHTML(src,desc){
-  return `<div class="shot"><img src="${esc(src)}" alt="" data-desc="${esc(desc)}"></div>`;
+  // src may be an array: several crops of one panel, stacked. The page render between them was a broken
+  // image at capture time, so the band holding it is cut rather than shown.
+  const list = Array.isArray(src) ? src : [src];
+  return `<div class="shot"><div class="stack">` +
+    list.map(s=>`<img src="${esc(s)}" alt="" data-desc="${esc(desc)}">`).join("") +
+    `</div></div>`;
 }
 function attachShots(){
   stage.querySelectorAll(".shot img").forEach(img=>{
@@ -861,6 +892,7 @@ function render(){
   if(s.rub) h+=`<div class="wrap-x"><table class="rub"><thead><tr><th>Rubric</th><th>Floor</th></tr></thead><tbody>${s.rub.map(([k,v])=>`<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`).join("")}</tbody></table></div>`;
   if(s.term) h+=`<div class="wrap-x"><pre class="term">${T[s.term]}</pre></div>${s.cap?`<p class="cap">${s.cap}</p>`:""}`;
   if(s.shot) h+=shotHTML(s.shot[0],s.shot[1]);
+  if(s.fig) h+=`<div class="fig">${s.fig}</div>`;
   if(s.pts) h+=`<ul class="pts">${s.pts.map(p=>`<li>${p}</li>`).join("")}</ul>`;
   if(s.grid) h+=`<div class="grid2">${s.grid.map(([k,v])=>`<div><p class="eyebrow" style="margin-bottom:7px">${k}</p><p style="margin:0;color:var(--ink-2);font-size:15.5px;line-height:1.55">${v}</p></div>`).join("")}</div>`;
   if(s.quote) h+=`<p class="quote">${s.quote}</p>`;

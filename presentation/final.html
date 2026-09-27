@@ -111,7 +111,11 @@ pre.term .hi{color:#E3B96C}
 /* screenshot slot — falls back to a labelled placeholder if the file isn't there yet */
 .shot{margin-top:18px;display:flex;justify-content:center;align-items:center;min-height:120px;
   border:1px solid var(--rule-strong);border-radius:7px;padding:10px;background:var(--panel, transparent)}
+.shot .stack{display:flex;flex-direction:column;gap:7px;max-width:100%}
 .shot img{max-width:100%;max-height:60vh;height:auto;display:block;border-radius:5px}
+/* two crops stacked: halve the cap so the pair still fits one screen */
+.shot .stack:has(img+img) img{max-height:27vh}
+
 .shot .ph{max-width:46ch;text-align:left}
 .shot .ph .f{font-family:var(--mono);font-size:12px;color:var(--signal);margin-bottom:7px;word-break:break-all}
 .shot .ph .d{font-size:13.5px;color:var(--muted);line-height:1.45}
@@ -233,7 +237,7 @@ const SLIDES = [
     ["What happened","Vision models read smudged text well and place coordinates badly. A box that drifts makes a <b>wrong answer look better evidenced</b> than an honest gap."]
   ],
   pts:["So the schema it fills has <b>no coordinate field at all</b> — not optional, absent","Separate code finds the value in the page's own word positions","Ambiguous? No box, and the screen says so"],
-  shot:["assets/panel-boxes.png","Intake form attached: 4 of 4 values located on the page, each staged for review with Approve / Reject — nothing reaches the record until a clinician approves it."],
+  shot:[["assets/panel-extract.png","assets/panel-review.png"],"Two details from the panel after an intake form is attached: 4 of 4 values located on the page, and every value held in a review queue with Approve and Reject before anything reaches the chart."],
   quote:"A field the model cannot fill is a field it cannot get wrong.",
   script:"First one. I was going to ask the vision model for the value <em>and</em> its position on the page. Then I realised: if the value is wrong and the box is wrong, I've drawn a confident rectangle around the wrong thing. That looks <em>more</em> trustworthy than admitting I don't know. So the model is never offered a coordinate field — the schema doesn't have one. Plain code finds the text instead.",
   cue:"Plain code finds the text instead." },
@@ -375,7 +379,12 @@ const stage=$("#stage"), notesEl=$("#notes"), dotsEl=$("#dots");
 // apostrophe anywhere in the description closed the string early and the fallback silently never ran.
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function shotHTML(src,desc){
-  return `<div class="shot"><img src="${esc(src)}" alt="" data-desc="${esc(desc)}"></div>`;
+  // src may be an array: several crops of one panel, stacked. The page render between them was a broken
+  // image at capture time, so the band holding it is cut rather than shown.
+  const list = Array.isArray(src) ? src : [src];
+  return `<div class="shot"><div class="stack">` +
+    list.map(s=>`<img src="${esc(s)}" alt="" data-desc="${esc(desc)}">`).join("") +
+    `</div></div>`;
 }
 function attachShots(){
   stage.querySelectorAll(".shot img").forEach(img=>{
