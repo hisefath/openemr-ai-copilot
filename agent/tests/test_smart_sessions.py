@@ -483,7 +483,10 @@ def test_callback_page_delivers_handle_in_meta_with_no_store_and_framing_lock():
     r = smart.panel_response(settings(), page, 'abc"><x>')
     assert '<head><meta name="copilot-session" content="abc&quot;&gt;&lt;x&gt;"><script' in r.body.decode()
     assert r.headers["cache-control"] == "no-store" and r.headers["referrer-policy"] == "no-referrer"
-    assert r.headers["content-security-policy"] == "default-src 'self'; frame-ancestors https://emr.example"
+    # img-src must keep blob: — the page render is handed to the <img> as an object URL, and a bare
+    # default-src 'self' blocks that scheme, which is how the citation overlay lost its page image once.
+    assert r.headers["content-security-policy"] == (
+        "default-src 'self'; img-src 'self' blob:; frame-ancestors https://emr.example")
 
 
 def test_page_without_session_placeholder_fails_at_startup(tmp_path):

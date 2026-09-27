@@ -294,9 +294,17 @@ async def create_api_session(http: httpx.AsyncClient, settings: Settings, store:
 
 
 def panel_headers(settings: Settings) -> Dict[str, str]:
-    """Headers for every panel response (§1 CSP, §2 callback no-store and no-referrer)."""
+    """Headers for every panel response (§1 CSP, §2 callback no-store and no-referrer).
+
+    img-src names blob: because 'self' does not cover it. A blob: URL inherits the creating document's
+    origin but is a different scheme, and every browser blocks it under a bare default-src 'self' --
+    verified, not assumed. The page render is fetched with the bearer header and handed to the <img> as
+    an object URL (an <img src> cannot send a header of its own), so without blob: here the citation
+    overlay draws its boxes on an image the browser refused to load. This widens images only, to data
+    this page itself created in memory; nothing external becomes loadable."""
     return {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
-            "Content-Security-Policy": f"default-src 'self'; frame-ancestors {settings.openemr_public_origin}"}
+            "Content-Security-Policy": f"default-src 'self'; img-src 'self' blob:; "
+                                       f"frame-ancestors {settings.openemr_public_origin}"}
 
 
 def load_page(path: Path) -> str:
