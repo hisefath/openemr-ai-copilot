@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Where Reliability Comes From</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#F4F6F4; --surface:#FFFFFF; --surface-2:#E9EEEA;
+  --ink:#16201A; --ink-2:#3B4C42; --muted:#697D70;
+  --rule:#D8E0DA; --rule-strong:#BBC8BF;
+  --accent:#2E6B4F; --accent-soft:#DCEBE2;
+  --warn:#9A6415; --warn-soft:#F4E8D3;
+  --fail:#9C3A2C; --fail-soft:#F5DFDB;
+  --term-bg:#131A16; --term-ink:#DCE7E0; --term-dim:#7B8F82;
+  --shadow:0 1px 2px rgba(22,32,26,.05), 0 8px 26px rgba(22,32,26,.07);
+  --sans:"Source Sans 3", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif:"Source Serif 4", Georgia, serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0C120E; --surface:#141D18; --surface-2:#1C2822;
+    --ink:#E4EDE7; --ink-2:#B5C6BB; --muted:#7E9387;
+    --rule:#233029; --rule-strong:#34473B;
+    --accent:#6BBE92; --accent-soft:#14251C;
+    --warn:#D9A455; --warn-soft:#271F11;
+    --fail:#E07C6B; --fail-soft:#2A1614;
+    --term-bg:#080D0A; --term-ink:#DCE7E0; --term-dim:#6D8175;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0C120E; --surface:#141D18; --surface-2:#1C2822;
+  --ink:#E4EDE7; --ink-2:#B5C6BB; --muted:#7E9387;
+  --rule:#233029; --rule-strong:#34473B;
+  --accent:#6BBE92; --accent-soft:#14251C;
+  --warn:#D9A455; --warn-soft:#271F11;
+  --fail:#E07C6B; --fail-soft:#2A1614;
+  --term-bg:#080D0A; --term-ink:#DCE7E0; --term-dim:#6D8175;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+
+#bar{position:fixed;inset:0 0 auto 0;height:3px;background:var(--rule);z-index:60}
+#bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s ease}
+
+#top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:10px 20px;background:color-mix(in srgb,var(--ground) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+#top .brand{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+#top .spacer{flex:1}
+.ctl{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--rule-strong);border-radius:6px;
+  background:var(--surface);cursor:pointer;font-size:13px;font-weight:500}
+.ctl:hover{border-color:var(--accent)}
+.ctl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ctl[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.counter{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.clock{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.clock.over{color:var(--fail);font-weight:600}
+
+main{padding:0 20px 40px;max-width:1140px;margin:0 auto}
+.deck{background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:var(--shadow);
+  padding:34px 34px 30px;margin-top:22px;min-height:400px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+  margin:0 0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.eyebrow .tick{color:var(--muted);letter-spacing:.06em}
+h1{font-size:clamp(28px,4.4vw,46px);line-height:1.08;margin:0 0 8px;letter-spacing:-.022em;font-weight:700;text-wrap:balance}
+h2{font-size:clamp(22px,3.1vw,33px);line-height:1.14;margin:0 0 16px;letter-spacing:-.018em;font-weight:600;text-wrap:balance}
+.sub{font-size:clamp(15px,1.8vw,19px);color:var(--ink-2);margin:0 0 20px;max-width:62ch}
+ul.pts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+ul.pts li{position:relative;padding-left:20px;font-size:16.5px;color:var(--ink-2);max-width:72ch}
+ul.pts li::before{content:"";position:absolute;left:2px;top:.62em;width:7px;height:2px;background:var(--accent)}
+ul.pts li b{color:var(--ink);font-weight:600}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.quote{font-family:var(--serif);font-size:clamp(18px,2.4vw,25px);line-height:1.36;color:var(--ink);
+  border-left:3px solid var(--accent);padding:4px 0 4px 18px;margin:22px 0 0;max-width:60ch;text-wrap:balance}
+
+/* before / after */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:4px}
+@media (max-width:760px){.ba{grid-template-columns:1fr}}
+.ba > div{border:1px solid var(--rule);border-radius:9px;padding:15px 17px;background:var(--surface-2)}
+.ba .lab{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px}
+.ba .before .lab{color:var(--warn)}
+.ba .after .lab{color:var(--accent)}
+.ba p{margin:0;font-size:15.5px;line-height:1.5;color:var(--ink-2)}
+.ba .after{border-color:var(--accent);background:var(--accent-soft)}
+
+.lecture{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px dashed var(--rule-strong)}
+.lecture .who{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--surface-2);color:var(--muted);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.lecture .said{font-family:var(--serif);font-style:italic;color:var(--ink-2);font-size:15.5px}
+
+pre.term{background:var(--term-bg);color:var(--term-ink);border-radius:9px;padding:16px 18px;margin:0;
+  font-family:var(--mono);font-size:12.5px;line-height:1.58;overflow-x:auto;border:1px solid var(--rule-strong)}
+pre.term .p{color:var(--term-dim)}
+pre.term .ok{color:#79D4A6}
+pre.term .no{color:#F08878}
+pre.term .hi{color:#E3B96C}
+.cap{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px}
+.wrap-x{overflow-x:auto}
+
+.stat{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}
+.stat div{min-width:92px}
+.stat .n{font-family:var(--mono);font-size:clamp(22px,3vw,30px);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+
+#notes{margin:18px 0 0;border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:9px;background:var(--surface);padding:20px 22px}
+#notes h3{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:500}
+#notes .script{font-size:18px;line-height:1.62;color:var(--ink);max-width:68ch;margin:0}
+#notes .script em{font-style:normal;background:var(--accent-soft);color:var(--accent);padding:0 3px;border-radius:3px}
+.cue{margin-top:15px;padding-top:13px;border-top:1px dashed var(--rule-strong);display:flex;gap:11px;align-items:baseline;flex-wrap:wrap}
+.cue .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;background:var(--accent);color:#fff;padding:3px 8px;border-radius:4px;white-space:nowrap}
+.cue .txt{font-family:var(--serif);font-style:italic;color:var(--ink-2);font-size:15.5px}
+
+#nav{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:18px;flex-wrap:wrap}
+#dots{display:flex;gap:5px;flex-wrap:wrap}
+#dots button{width:9px;height:9px;padding:0;border-radius:50%;border:1px solid var(--rule-strong);background:transparent;cursor:pointer}
+#dots button[aria-current="true"]{background:var(--accent);border-color:var(--accent);transform:scale(1.25)}
+#dots button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:26px;text-align:center}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--rule-strong);border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:var(--surface);color:var(--ink-2)}
+.slide{display:none}
+.slide.on{display:block;animation:in .28s ease both}
+@keyframes in{from{opacity:.4;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.slide.on{animation:none}}
+</style>
+</head>
+<body>
+<div id="bar"><i></i></div>
+<div id="top">
+  <span class="brand">Week 2 · Final submission</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock">0:00</span>
+  <span class="counter" id="count">1 / 13</span>
+  <button class="ctl" id="bNotes" aria-pressed="true">Script</button>
+  <button class="ctl" id="bTheme">Theme</button>
+</div>
+<main>
+  <div id="stage"></div>
+  <div id="notes"></div>
+  <div id="nav">
+    <div style="display:flex;gap:10px">
+      <button class="ctl" id="bPrev">← Back</button>
+      <button class="ctl" id="bNext">Next →</button>
+    </div>
+    <div id="dots"></div>
+  </div>
+  <p class="hint"><kbd>→</kbd>/<kbd>Space</kbd> next · <kbd>←</kbd> back · <kbd>N</kbd> script · <kbd>T</kbd> theme · <kbd>R</kbd> reset timer</p>
+</main>
+
+<script>
+const T = {
+green:`<span class="p">$ python evals/w2/run_gate.py</span>
+
+  55 cases · 8 rubrics · all <span class="ok">1.000</span>
+
+  <span class="ok">gate passed</span>
+
+<span class="p">$ # meanwhile, every real call to the model:</span>
+<span class="no">HTTP 400  output_config.type: Extra inputs are not permitted</span>`,
+
+nothing:`<span class="p">$ python evals/w2/run_gate.py</span>
+
+  category                  rate      n
+  ----------------------- ------  -----
+  schema_valid              <span class="hi">n/a</span>      <span class="no">0</span>
+  citation_present          <span class="hi">n/a</span>      <span class="no">0</span>
+  factually_consistent      <span class="hi">n/a</span>      <span class="no">0</span>
+  safe_refusal              <span class="hi">n/a</span>      <span class="no">0</span>
+
+  <span class="ok">gate passed</span>   <span class="p">&lt;- nothing was below a floor,
+                       because nothing was measured</span>`,
+
+blocked:`<span class="p">$ # pipeline 30862, branch regression/eval-gate-demo</span>
+
+<span class="ok">(success)</span> test   cases:wellformed
+<span class="ok">(success)</span> test   agent:tests            <span class="p">&lt;- 408 unit tests PASS</span>
+<span class="ok">(success)</span> test   agent:ships-standalone
+<span class="no">(failed)</span>  gate   agent:gate             <span class="p">&lt;- the gate blocks it</span>
+          deploy agent:deploy           <span class="p">&lt;- never runs</span>
+
+cache miss: EX-01: model-facing surface changed on call #1
+            (recorded 590c94c6, now bac1bd81)
+<span class="no">GATE FAILED</span>`,
+};
+
+const SLIDES = [
+{ id:'title', t:20,
+  eyebrow:'AgentForge · Week 2 · What I learned',
+  h1:'Where reliability comes from',
+  sub:"An agent is a while loop with a language model inside it. That loop is six lines, and it is the same six lines in every framework. So none of the reliability can be coming from the loop — which raises the only question that mattered this week.",
+  lecture:['Zac Smith · Harnesses','“Control flow, not magic.”'],
+  script:"Week two taught me one sentence, and everything else followed from it: <em>an agent is a while loop with a language model inside it</em>. Six lines. Same six lines in every framework. So if the loop is trivial, none of my reliability is coming from the loop. It has to come from somewhere else — and finding out where is what this project turned into.",
+  cue:"...and finding out where is what this project turned into." },
+
+{ id:'built', t:18,
+  eyebrow:'What I built',
+  h2:'Five capabilities, one question',
+  pts:[
+    "Read two document types with a <b>strict schema</b> and a citation on every fact",
+    "<b>Hybrid search</b> — keyword plus meaning, then a reranker",
+    "A <b>supervisor and two workers</b> with every handoff logged",
+    "A <b>55-case eval gate</b> that blocks the build on a regression",
+    "Plus a surprise: port the patient dashboard to <b>React + TypeScript</b>"
+  ],
+  stat:[['408','tests'],['55','gated cases'],['8','rubrics'],['13','lessons the hard way']],
+  script:"Here's the build, quickly, because it isn't the interesting part. Document reading, hybrid search, a small multi-agent graph, an evaluation gate, and a surprise challenge to port the dashboard off PHP. Five capabilities. I'm going to spend the rest of this on the four times I was confidently wrong.",
+  cue:"...the four times I was confidently wrong." },
+
+{ id:'evidence', t:24,
+  eyebrow:'Lesson 1 · Grounding',
+  h2:'Never let the model supply its own evidence',
+  ba:[
+    ["I thought","Ask the vision model for the value and where it saw it on the page. One call, done."],
+    ["What happened","Vision models read smudged text well and place coordinates badly. A box that drifts makes a <b>wrong answer look better evidenced</b> than an honest gap."]
+  ],
+  pts:["So the schema it fills has <b>no coordinate field at all</b> — not optional, absent","Separate code finds the value in the page's own word positions","Ambiguous? No box, and the screen says so"],
+  quote:"A field the model cannot fill is a field it cannot get wrong.",
+  script:"First one. I was going to ask the vision model for the value <em>and</em> its position on the page. Then I realised: if the value is wrong and the box is wrong, I've drawn a confident rectangle around the wrong thing. That looks <em>more</em> trustworthy than admitting I don't know. So the model is never offered a coordinate field — the schema doesn't have one. Plain code finds the text instead.",
+  cue:"Plain code finds the text instead." },
+
+{ id:'floor', t:22,
+  eyebrow:'Lesson 2 · Thresholds',
+  h2:'A number you did not measure is a guess',
+  ba:[
+    ["I thought","Pick a sensible relevance cutoff. 0.7 sounds about right."],
+    ["What happened","I recorded every evaluation query and looked at where the two groups actually separate. Real matches scored <b>0.516 to 0.695</b>. A question the documents can't answer scored <b>0.475</b>."]
+  ],
+  pts:["The cutoff sits at <b>0.50</b>, in the gap between those two populations","Search engines always return <i>something</i> — the floor is what turns that into an honest “nothing”","At 0.35, a lab reference range comes back as “evidence”"],
+  script:"Second. I was about to pick a relevance cutoff because it sounded right. Instead I recorded every test query and plotted where the real matches and the non-matches actually separate. Real ones scored point five one six up to point six nine five. A question the documents genuinely can't answer scored point four seven five. <em>The gap is where the number goes.</em>",
+  cue:"The gap is where the number goes." },
+
+{ id:'falsify', t:24,
+  eyebrow:'Lesson 3 · Orchestration',
+  h2:'Make your own architecture falsifiable',
+  pts:[
+    "A supervisor decides what happens next; two workers do the work",
+    "Its reasons are <b>fixed codes</b>, not model prose — so they can be counted",
+    "It sees <b>counts and flags, never patient values</b>",
+    "And a <b>plain if/else rule</b> runs beside it on every request, as a counterfactual"
+  ],
+  lecture:['Tom Tarpey · Factories','“The orchestrator is an explicit state machine, not a vibe.”'],
+  quote:"If the model never disagrees with the rule, the model is not earning its place — and I would delete it.",
+  script:"Third, and this is the one I'd defend hardest. I built a supervisor to route work. But I also wrote a dumb version — plain if-else, no model — and ran it alongside on every request. If the smart one never disagrees with the dumb one, <em>the smart one isn't earning its place.</em> I made my own design something I could prove wrong. That's the difference between engineering and decoration.",
+  cue:"That's the difference between engineering and decoration." },
+
+{ id:'green', t:28,
+  eyebrow:'Lesson 4 · The big one',
+  h2:'A green test suite over a completely broken product',
+  term:'green',
+  cap:'Every real call to the model failed. For a week. Everything green.',
+  script:"Fourth. For an entire week, the core feature — reading documents — returned an error on <em>every single real call</em>. One missing wrapper in how I formatted the request. And the whole time: three hundred and ninety-nine tests passing, fifty-five evaluation cases passing, everything green.",
+  cue:"...everything green." },
+
+{ id:'why', t:24,
+  eyebrow:'Lesson 4 · Why nothing caught it',
+  h2:'Two different properties. I only had one.',
+  ba:[
+    ["What my tests proved","The <b>logic</b> is correct — given a model response, the pipeline handles it right. They replay saved responses and never call the API."],
+    ["What nothing proved","The <b>requests</b> are still ones the API accepts. Nobody was checking that the thing I send is even valid."]
+  ],
+  quote:"Every test suite has a blind spot built into its own design. Mine was fast and reliable because it was offline — and blind for exactly the same reason.",
+  script:"Here's why nothing caught it. My tests replay saved model responses, deliberately, because calling a real model makes results drift and turns a five-percent threshold into noise. But that means they proved my <em>logic</em> was right and proved nothing about whether my <em>requests</em> were valid. Two different properties. I had one of them and didn't notice.",
+  cue:"I had one of them and didn't notice." },
+
+{ id:'nothing', t:24,
+  eyebrow:'Lesson 5 · Measuring nothing',
+  h2:'“Gate passed” over zero measurements',
+  term:'nothing',
+  cap:'One misplaced line. Every rubric reported n/a. The gate still said passed.',
+  quote:"A test suite that blocks nothing is a dashboard. One measuring nothing is the same thing wearing a green tick.",
+  script:"Fifth. I broke a counter in my scoring loop, and every single check came back <em>not applicable</em> — zero cases measured. And the gate still printed “gate passed”. Nothing was below a threshold, because nothing was above one either. Now the build fails if a category that used to have cases suddenly has none.",
+  cue:"...suddenly has none." },
+
+{ id:'demo', t:28,
+  eyebrow:'Lesson 6 · The deepest one',
+  h2:'I found the third hole by trying to prove the gate worked',
+  pts:[
+    "For the submission I had to show the gate <b>blocking</b> a regression",
+    "So I wrote one: changed the prompt to allow rounding — which would corrupt every value, since <code>&lt;0.01</code> is a real result",
+    "<b>The gate passed.</b> All 55 cases, all 8 rubrics, 1.000",
+    "The prompt lived in a place my cache key deliberately ignored — so editing it changed nothing"
+  ],
+  quote:"I did not find this by being careful. I found it by trying to demonstrate that something worked.",
+  script:"Sixth, and my favourite. To submit, I had to <em>show</em> the gate blocking a regression. So I wrote one — changed the prompt to allow rounding, which would corrupt every lab value, because “less than nought point nought one” is a real result. And the gate passed. All fifty-five cases. The prompt was sitting in a place my cache key ignored on purpose.",
+  cue:"...a place my cache key ignored on purpose." },
+
+{ id:'blocked', t:22,
+  eyebrow:'Lesson 6 · Fixed, then proven',
+  h2:'Now it blocks — and the unit tests still pass',
+  term:'blocked',
+  cap:'Pipeline 30862. The tests pass. Only the gate catches it.',
+  pts:["It took <b>two more attempts</b> to make the demo honest: my first fix made unit tests fail, so the gate got <i>skipped</i> and never fired","Pinning prompt wording in a unit test duplicates the gate and pre-empts it"],
+  script:"Fixed, and then proven. Notice what the pipeline shows: the unit tests <em>pass</em>. Four hundred and eight of them. This regression is invisible to every type check and every assertion I own. Only the evaluation gate catches it — and getting that demonstration honest took two more tries.",
+  cue:"...took two more tries." },
+
+{ id:'audit', t:24,
+  eyebrow:'Lesson 7 · The surprise challenge',
+  h2:'Read the system before you decide anything',
+  ba:[
+    ["I thought","Port the dashboard to React, have the browser hold the login token. Standard."],
+    ["What the code said","OpenEMR <b>refuses to register that</b>. Public clients can't have the permissions a clinician needs. I read it in the source before writing a line."]
+  ],
+  pts:["So the token must live on a server — which is also what current security guidance recommends","<b>The architecture was decided by a file I read, not a preference I had</b>"],
+  lecture:['Tom Tarpey · Legacy Systems','“The deliverable of your first pass is a written understanding, not a change.”'],
+  script:"Seventh. The surprise challenge was porting the dashboard to a modern framework. My instinct was React with the browser holding the login token. Then I read the authorisation source, and found the server <em>refuses</em> to register a client like that. The architecture wasn't my choice — it was in a file, and I only knew because I read before I built.",
+  cue:"...because I read before I built." },
+
+{ id:'answer', t:24,
+  eyebrow:'The answer',
+  h2:'So where does reliability come from?',
+  pts:[
+    "Not the loop — it's six lines and everyone has the same six",
+    "Not the model — it is confidently wrong on a schedule",
+    "Not the framework — it just names the loop",
+    "It comes from <b>the things that can tell you you're wrong</b>: a schema with no field for a guess, a threshold you measured, a rule that shadows your model, a gate that can go red — and proof that it does"
+  ],
+  quote:"Reliability is not something you add. It is the set of ways your system is allowed to contradict you.",
+  script:"So: where does it come from? Not the loop, not the model, not the framework. It comes from everything that's able to <em>tell you you're wrong</em>. A schema with no field for a guess. A threshold you actually measured. A dumb rule shadowing your smart one. And a gate that can go red — plus proof that it does.",
+  cue:"...plus proof that it does." },
+
+{ id:'close', t:20,
+  eyebrow:'Close',
+  h1:'What I would tell myself in week one',
+  pts:[
+    "Green tests are evidence of <b>what you chose to test</b>, and nothing else",
+    "Every threshold should have a measurement behind it or be deleted",
+    "Try to <b>demonstrate</b> your safety nets — that's when you find the holes",
+    "Read before you build. The constraint is usually already written down."
+  ],
+  quote:"The three worst bugs this week were all invisible to a passing test suite. That is the whole lesson.",
+  script:"If I could tell myself one thing in week one: green tests are evidence of what you <em>chose</em> to test and nothing else. Every threshold needs a measurement or it should be deleted. And try to demonstrate your safety nets, because that's when you find the holes. <em>My three worst bugs this week were all invisible to a passing test suite.</em>",
+  cue:"My three worst bugs this week were all invisible to a passing test suite." },
+];
+
+const $=(s,r=document)=>r.querySelector(s);
+const stage=$("#stage"), notesEl=$("#notes"), dotsEl=$("#dots");
+let i=0, showNotes=true, t0=null, tick=null;
+
+function render(){
+  const s=SLIDES[i];
+  let h=`<div class="deck"><p class="eyebrow">${s.eyebrow}<span class="tick">${s.t}s</span></p>`;
+  if(s.h1) h+=`<h1>${s.h1}</h1>`;
+  if(s.h2) h+=`<h2>${s.h2}</h2>`;
+  if(s.sub) h+=`<p class="sub">${s.sub}</p>`;
+  if(s.stat) h+=`<div class="stat">${s.stat.map(([n,l])=>`<div><div class="n">${n}</div><div class="l">${l}</div></div>`).join("")}</div>`;
+  if(s.ba) h+=`<div class="ba"><div class="before"><div class="lab">I thought</div><p>${s.ba[0][1]}</p></div><div class="after"><div class="lab">${s.ba[1][0]}</div><p>${s.ba[1][1]}</p></div></div>`;
+  if(s.term) h+=`<div class="wrap-x"><pre class="term">${T[s.term]}</pre></div>${s.cap?`<p class="cap">${s.cap}</p>`:""}`;
+  if(s.pts) h+=`<ul class="pts" style="margin-top:${s.ba||s.term?'18px':'0'}">${s.pts.map(p=>`<li>${p}</li>`).join("")}</ul>`;
+  if(s.quote) h+=`<p class="quote">${s.quote}</p>`;
+  if(s.lecture) h+=`<div class="lecture"><span class="who">${s.lecture[0]}</span><span class="said">${s.lecture[1]}</span></div>`;
+  h+=`</div>`;
+  stage.innerHTML=h;
+  notesEl.hidden=!showNotes;
+  notesEl.innerHTML=`<h3>Read aloud — slide ${i+1} of ${SLIDES.length} · ${s.t}s</h3>
+    <p class="script">${s.script}</p>
+    <div class="cue"><span class="tag">Click after</span><span class="txt">“${s.cue}”</span></div>`;
+  $("#count").textContent=`${i+1} / ${SLIDES.length}`;
+  $("#bar i").style.width=((i+1)/SLIDES.length*100)+"%";
+  [...dotsEl.children].forEach((d,n)=>d.setAttribute("aria-current",n===i?"true":"false"));
+  $("#bPrev").disabled=i===0; $("#bNext").disabled=i===SLIDES.length-1;
+  window.scrollTo({top:0,behavior:"instant"});
+}
+SLIDES.forEach((s,n)=>{const b=document.createElement("button");b.type="button";b.title=`${n+1}. ${s.h1||s.h2}`;
+  b.addEventListener("click",()=>{i=n;render()});dotsEl.appendChild(b)});
+function go(d){const n=i+d;if(n>=0&&n<SLIDES.length){i=n;render()}}
+const target=SLIDES.reduce((a,s)=>a+s.t,0);
+const fmt=n=>`${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`;
+function startClock(){if(tick)return;t0=performance.now();
+  tick=setInterval(()=>{const s=Math.floor((performance.now()-t0)/1000);const el=$("#clock");
+    el.textContent=`${fmt(s)} / ${fmt(target)}`;el.classList.toggle("over",s>target)},1000)}
+$("#bNext").addEventListener("click",()=>{startClock();go(1)});
+$("#bPrev").addEventListener("click",()=>go(-1));
+$("#bNotes").addEventListener("click",e=>{showNotes=!showNotes;e.currentTarget.setAttribute("aria-pressed",showNotes);render()});
+$("#bTheme").addEventListener("click",()=>{const c=document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme",c==="dark"?"light":c==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark"))});
+document.addEventListener("keydown",e=>{
+  if(e.target.matches("input,textarea"))return;
+  const k=e.key.toLowerCase();
+  if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){e.preventDefault();startClock();go(1)}
+  else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();go(-1)}
+  else if(k==="n"){showNotes=!showNotes;$("#bNotes").setAttribute("aria-pressed",showNotes);render()}
+  else if(k==="t"){$("#bTheme").click()}
+  else if(k==="r"){clearInterval(tick);tick=null;$("#clock").textContent="0:00";$("#clock").classList.remove("over")}
+  else if(k==="home"){i=0;render()} else if(k==="end"){i=SLIDES.length-1;render()}
+});
+$("#clock").textContent=`0:00 / ${fmt(target)}`;
+render();
+</script>
+</body>
+</html>
