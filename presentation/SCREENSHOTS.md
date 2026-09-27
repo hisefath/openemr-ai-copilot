@@ -1,17 +1,19 @@
 # Screenshots the deck expects
 
-Drop these four PNGs into `presentation/assets/`. Until a file exists, that slide shows a dashed
+Three of the five are captured. Drop the rest into `presentation/assets/`. Until a file exists, that slide shows a dashed
 placeholder naming the file and describing the shot — so the deck is presentable right now, and each
 screenshot you add just replaces a placeholder.
 
 Filenames must match exactly.
 
-| File | Slide | What to capture |
-|---|---|---|
-| `assets/panel-boxes.png` | 4 — *The model says what. The page says where.* | Co-Pilot panel after attaching `intake_full.pdf`: extracted values listed, **bounding boxes drawn over the matching text** on the page image. The boxes are the point — frame so several are visible at once. |
-| `assets/panel-unlocated.png` | 5 — *The row that proves the design* | `lab_degraded.pdf` attached, showing the one value that came back **without** a box, reading *“extracted, could not be located on the page.”* This is the most important shot in the deck. |
-| `assets/panel-answer.png` | 7 — *A supervisor you can audit* | An answered question: cited lines, guideline evidence under its own heading, and the **routing/handoff flags** visible on the response. |
-| `assets/dashboard.png` | 20 — *React 19 + TypeScript* | The **new React dashboard**: identity bar (name, MRN, DOB, sex, status) and all six cards visible — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals. Launch it at `/dashboard/launch` from the chart. Frame wide enough to show the card grid. |
+| File | Status | Slide | What to capture |
+|---|---|---|---|
+| `assets/panel-boxes.png` | **captured** (re-shoot advised) | index 4 · final 3 | Intake form attached, 4 of 4 values located, review queue with Approve/Reject. **The page render itself was 401ing when this was shot** — fixed in `documents.js`/`panel.js`, so re-shoot after a deploy to get the actual bounding boxes on screen. |
+| `assets/panel-answer.png` | **captured** | index 7 · final 5 | Answered question: deterministic HIGH drug–allergy conflict, per-line citations, `not in rule set, not checked`, and the chart-resident prompt injection rendered as data. |
+| `assets/panel-consent.png` | **captured** | index 20 · final 10 | OpenEMR's consent screen for the confidential client — every requested scope enumerated and revocable, `Api:oemr: True` under Identity Information. |
+| `assets/panel-unlocated.png` | **still needed** | index 5 | `lab_degraded.pdf` attached with the dropdown set to **Lab PDF** (not Intake form), showing the value that came back **without** a box: *"extracted, could not be located on the page."* This is the most important shot in the deck. |
+| `assets/dashboard.png` | **still needed** | index 21 | The React dashboard: identity bar plus all six cards — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals. Launch at `/dashboard/launch` from the chart. |
+| `assets/panel-wrongtype.png` | spare | — | A lab PDF read with the *intake* schema: `0 of 0 values located`, `Nothing left to review`. Not wired into either deck; correct behaviour, but not the un-located-row point. |
 
 Both demo PDFs are already on your Desktop (`intake_full.pdf`, `lab_degraded.pdf`). If you need to
 regenerate them:

@@ -162,7 +162,7 @@ pre.term .hi{color:#E7B571}
   min-height:200px; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center;
   overflow:hidden;
 }
-.shot img{max-width:100%; height:auto; display:block; border-radius:5px}
+.shot img{max-width:100%; max-height:60vh; height:auto; display:block; border-radius:5px}
 .shot .ph{max-width:46ch}
 .shot .ph .f{font-family:var(--mono); font-size:12px; color:var(--signal); margin-bottom:7px; word-break:break-all}
 .shot .ph .d{font-size:13.5px; color:var(--muted); line-height:1.45}
@@ -482,6 +482,7 @@ const SLIDES = [
     "<code>deterministic_next()</code> — a plain rule — runs as fallback, spec, and <b>counterfactual</b>",
     "Loops <b>bounded in code</b>: extract retries 3×, retrieval reformulates once, then stops"
   ],
+  shot:["assets/panel-answer.png","An answered question: a deterministic HIGH drug-allergy conflict, per-line citations, self-declared coverage limits, and a prompt injection in the allergy list rendered as data."],
   quote:"Its divergence from the rule is measured. If that comes back zero, I delete the supervisor and ship the rule.",
   script:"The listed pitfall was a black-box supervisor. Every decision returns an enum code on the response, and it only ever sees counts — never patient values. And a plain deterministic rule shadows it. If the model never diverges from the rule, the model isn't earning its place.",
   cue:"...the model isn't earning its place.",
@@ -629,6 +630,7 @@ const SLIDES = [
     "The BFF is the <b>existing agent</b> — <code>smart.py</code>, <code>sessions.py</code>, <code>fhir.py</code> already do this, under the gate",
     "<b>95 lines, zero new auth code.</b> A second auth path is the last thing this project needs"
   ],
+  shot:["assets/panel-consent.png","The consent screen OpenEMR renders for the confidential client: every requested scope enumerated and individually revocable, with Api:oemr under Identity Information."],
   script:"And that's where the industry has landed anyway — the current guidance for browser apps recommends a backend-for-frontend over tokens in JavaScript. So the agent became the BFF. It already does SMART with PKCE, already holds tokens server-side, already enforces the patient lock, and it's already covered by the gate.",
   cue:"...already covered by the gate.",
   doing:"Stress zero new auth code. Reuse is the argument."
@@ -833,8 +835,20 @@ const $=(s,r=document)=>r.querySelector(s);
 const stage=$("#stage"), notesEl=$("#notes"), dotsEl=$("#dots");
 let i=0, showNotes=true, t0=null, tick=null;
 
+// A missing screenshot degrades to a labelled placeholder. The handler is attached in attachShots() rather
+// than as an inline onerror=: an attribute's value is HTML-decoded before it is parsed as JS, so an
+// apostrophe anywhere in the description closed the string early and the fallback silently never ran.
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function shotHTML(src,desc){
-  return `<div class="shot"><img src="${src}" alt="" onerror="this.parentNode.innerHTML='&lt;div class=\\'ph\\'&gt;&lt;div class=\\'f\\'&gt;${src}&lt;/div&gt;&lt;div class=\\'d\\'&gt;${desc.replace(/'/g,"&#39;")}&lt;/div&gt;&lt;/div&gt;'"></div>`;
+  return `<div class="shot"><img src="${esc(src)}" alt="" data-desc="${esc(desc)}"></div>`;
+}
+function attachShots(){
+  stage.querySelectorAll(".shot img").forEach(img=>{
+    const fail=()=>{img.parentNode.innerHTML=
+      `<div class="ph"><div class="f">${esc(img.getAttribute("src"))}</div><div class="d">${esc(img.dataset.desc||"")}</div></div>`};
+    img.addEventListener("error",fail);
+    if(img.complete&&!img.naturalWidth)fail();   // already failed before this listener existed
+  });
 }
 
 function render(){
@@ -852,6 +866,7 @@ function render(){
   if(s.quote) h+=`<p class="quote">${s.quote}</p>`;
   h+=`</div>`;
   stage.innerHTML=h;
+  attachShots();
 
   notesEl.hidden=!showNotes;
   notesEl.innerHTML=`<h3>Read aloud — slide ${i+1} · ${s.t}s</h3>

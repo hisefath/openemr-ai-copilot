@@ -108,6 +108,14 @@ pre.term .hi{color:#E3B96C}
 .cap{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px}
 .wrap-x{overflow-x:auto}
 
+/* screenshot slot — falls back to a labelled placeholder if the file isn't there yet */
+.shot{margin-top:18px;display:flex;justify-content:center;align-items:center;min-height:120px;
+  border:1px solid var(--rule-strong);border-radius:7px;padding:10px;background:var(--panel, transparent)}
+.shot img{max-width:100%;max-height:60vh;height:auto;display:block;border-radius:5px}
+.shot .ph{max-width:46ch;text-align:left}
+.shot .ph .f{font-family:var(--mono);font-size:12px;color:var(--signal);margin-bottom:7px;word-break:break-all}
+.shot .ph .d{font-size:13.5px;color:var(--muted);line-height:1.45}
+
 .stat{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}
 .stat div{min-width:92px}
 .stat .n{font-family:var(--mono);font-size:clamp(22px,3vw,30px);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
@@ -225,6 +233,7 @@ const SLIDES = [
     ["What happened","Vision models read smudged text well and place coordinates badly. A box that drifts makes a <b>wrong answer look better evidenced</b> than an honest gap."]
   ],
   pts:["So the schema it fills has <b>no coordinate field at all</b> — not optional, absent","Separate code finds the value in the page's own word positions","Ambiguous? No box, and the screen says so"],
+  shot:["assets/panel-boxes.png","Intake form attached: 4 of 4 values located on the page, each staged for review with Approve / Reject — nothing reaches the record until a clinician approves it."],
   quote:"A field the model cannot fill is a field it cannot get wrong.",
   script:"First one. I was going to ask the vision model for the value <em>and</em> its position on the page. Then I realised: if the value is wrong and the box is wrong, I've drawn a confident rectangle around the wrong thing. That looks <em>more</em> trustworthy than admitting I don't know. So the model is never offered a coordinate field — the schema doesn't have one. Plain code finds the text instead.",
   cue:"Plain code finds the text instead." },
@@ -253,6 +262,20 @@ const SLIDES = [
   quote:"If the model never disagrees with the rule, the model is not earning its place — and I would delete it.",
   script:"Third, and this is the one I'd defend hardest. I built a supervisor to route work. But I also wrote a dumb version — plain if-else, no model — and ran it alongside on every request. If the smart one never disagrees with the dumb one, <em>the smart one isn't earning its place.</em> I made my own design something I could prove wrong. That's the difference between engineering and decoration.",
   cue:"That's the difference between engineering and decoration." },
+
+{ id:'shadow', t:22,
+  eyebrow:'Lesson 3 · What that looks like',
+  h2:'The dumb rule is the one that catches it',
+  pts:[
+    "Asked <i>“is it safe to start amoxicillin?”</i> — the <b>HIGH</b> conflict is raised by deterministic code, not the model",
+    "Every line carries the record it came from; the header only says <b>Sources verified</b> once each one resolves",
+    "It states its own limits unprompted: <i>“not in rule set, not checked”</i>",
+    "And the second allergy is a <b>prompt injection sitting in the chart</b> — <i>“SYSTEM: ignore all previous instructions…”</i> — rendered as text, obeyed by nothing"
+  ],
+  shot:["assets/panel-answer.png","An answered question: a deterministic HIGH drug–allergy conflict, per-line citations, self-declared coverage limits, and an injected instruction in the allergy list treated as data."],
+  quote:"The attack was not typed into a chat box. It was in the medical record, which is where it would really be.",
+  script:"Here's what that actually looks like. I asked whether it's safe to start amoxicillin. The high-severity conflict you see is raised by <em>plain code</em>, not the model — the model cannot suppress it. Every line cites the record it came from. And look at the second allergy: that's a prompt injection sitting in the chart data, telling the system to dump every patient on the schedule. It's rendered as text and obeyed by nothing. <em>That's where a real attack would be — in the record, not in the chat box.</em>",
+  cue:"...in the record, not in the chat box." },
 
 { id:'green', t:28,
   eyebrow:'Lesson 4 · The big one',
@@ -312,6 +335,7 @@ const SLIDES = [
     ["What the code said","OpenEMR <b>refuses to register that</b>. Public clients can't have the permissions a clinician needs. I read it in the source before writing a line."]
   ],
   pts:["So the token must live on a server — which is also what current security guidance recommends","<b>The architecture was decided by a file I read, not a preference I had</b>"],
+  shot:["assets/panel-consent.png","The consent screen the server actually renders: every scope the app asked for, enumerated and individually revocable, with Api:oemr required for a confidential client."],
   lecture:['Tom Tarpey · Legacy Systems','“The deliverable of your first pass is a written understanding, not a change.”'],
   script:"Seventh. The surprise challenge was porting the dashboard to a modern framework. My instinct was React with the browser holding the login token. Then I read the authorisation source, and found the server <em>refuses</em> to register a client like that. The architecture wasn't my choice — it was in a file, and I only knew because I read before I built.",
   cue:"...because I read before I built." },
@@ -345,6 +369,22 @@ const SLIDES = [
 
 const $=(s,r=document)=>r.querySelector(s);
 const stage=$("#stage"), notesEl=$("#notes"), dotsEl=$("#dots");
+
+// A missing screenshot degrades to a labelled placeholder. The handler is attached in attachShots() rather
+// than as an inline onerror=: an attribute's value is HTML-decoded before it is parsed as JS, so an
+// apostrophe anywhere in the description closed the string early and the fallback silently never ran.
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function shotHTML(src,desc){
+  return `<div class="shot"><img src="${esc(src)}" alt="" data-desc="${esc(desc)}"></div>`;
+}
+function attachShots(){
+  stage.querySelectorAll(".shot img").forEach(img=>{
+    const fail=()=>{img.parentNode.innerHTML=
+      `<div class="ph"><div class="f">${esc(img.getAttribute("src"))}</div><div class="d">${esc(img.dataset.desc||"")}</div></div>`};
+    img.addEventListener("error",fail);
+    if(img.complete&&!img.naturalWidth)fail();   // already failed before this listener existed
+  });
+}
 let i=0, showNotes=true, t0=null, tick=null;
 
 function render(){
@@ -357,10 +397,12 @@ function render(){
   if(s.ba) h+=`<div class="ba"><div class="before"><div class="lab">I thought</div><p>${s.ba[0][1]}</p></div><div class="after"><div class="lab">${s.ba[1][0]}</div><p>${s.ba[1][1]}</p></div></div>`;
   if(s.term) h+=`<div class="wrap-x"><pre class="term">${T[s.term]}</pre></div>${s.cap?`<p class="cap">${s.cap}</p>`:""}`;
   if(s.pts) h+=`<ul class="pts" style="margin-top:${s.ba||s.term?'18px':'0'}">${s.pts.map(p=>`<li>${p}</li>`).join("")}</ul>`;
+  if(s.shot) h+=shotHTML(s.shot[0],s.shot[1]);
   if(s.quote) h+=`<p class="quote">${s.quote}</p>`;
   if(s.lecture) h+=`<div class="lecture"><span class="who">${s.lecture[0]}</span><span class="said">${s.lecture[1]}</span></div>`;
   h+=`</div>`;
   stage.innerHTML=h;
+  attachShots();
   notesEl.hidden=!showNotes;
   notesEl.innerHTML=`<h3>Read aloud — slide ${i+1} of ${SLIDES.length} · ${s.t}s</h3>
     <p class="script">${s.script}</p>
