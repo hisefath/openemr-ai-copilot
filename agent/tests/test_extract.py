@@ -171,8 +171,16 @@ def test_pages_are_sent_as_images_with_the_documents_schema():
                                              [b"\x89PNG-one", b"\x89PNG-two"], Deadline(10.0)))
     assert parsed is not None and meta.reason is None
     content = fake.calls[0]["messages"][0]["content"]
-    assert [c["type"] for c in content] == ["image", "image", "text"]
+    assert [c["type"] for c in content] == ["image", "image"], "pages must be sent as pixels"
     assert "bbox" not in json.dumps(fake.calls[0]["output_config"])
+
+    # The instruction belongs in `system`, and this is enforced rather than merely preferred: replay.py
+    # hashes the model-facing surface and deliberately excludes `messages`, so an instruction carried as a
+    # trailing user text block is invisible to the eval gate. It was, and editing the extraction prompt
+    # left every recording valid and the gate green. Keep it in `system` or the gate stops guarding it.
+    assert "EXACTLY as printed" in fake.calls[0]["system"]
+    assert not any(c["type"] == "text" for c in content), \
+        "instruction must not ride in messages — replay.py cannot see it there"
 
 
 @pytest.mark.parametrize("reply,reason", [

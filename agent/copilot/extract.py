@@ -92,7 +92,13 @@ async def read_document(client: anthropic.AsyncAnthropic, settings: Settings, do
                                      "data": base64.b64encode(img).decode()}}
         for img in images
     ]
-    content.append({"type": "text", "text": INSTRUCTION[doc_type] + COMMON})
+    # The instruction goes in `system`, NOT as a trailing user text block, and that placement is load
+    # bearing for the eval gate rather than a style choice. replay.py keys a recording on the model-facing
+    # surface and deliberately EXCLUDES `messages`, because message content is the per-case payload that
+    # varies by design. While this instruction lived in a user block it was invisible to that hash: editing
+    # the extraction prompt left every recording valid, so the gate replayed stale answers and stayed green.
+    # Found by trying to demonstrate the gate blocking a regression and watching it pass. `system` is also
+    # simply the correct place for an instruction that is constant across every document.
 
     meta.calls += 1
     start = time.monotonic()
@@ -101,6 +107,7 @@ async def read_document(client: anthropic.AsyncAnthropic, settings: Settings, do
                       doc_type=doc_type.value, pages=len(images)) as gen:
             resp = await client.messages.create(
                 model=settings.anthropic_model, max_tokens=MAX_TOKENS, timeout=timeout,
+                system=INSTRUCTION[doc_type] + COMMON,
                 messages=[{"role": "user", "content": content}],
                 output_config=output_format(doc_type),
             )
