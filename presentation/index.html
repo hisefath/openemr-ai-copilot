@@ -246,7 +246,7 @@ kbd{
 <div id="top">
   <span class="brand">Clinical Co-Pilot · Week 2</span>
   <span class="spacer"></span>
-  <span class="clock" id="clock">0:00 / 5:02 core</span>
+  <span class="clock" id="clock">0:00 / 5:16 core</span>
   <span class="counter" id="count">1 / 15</span>
   <button class="ctl" id="bNotes" aria-pressed="true">Notes</button>
   <button class="ctl" id="bIv">Interview prep</button>
@@ -272,6 +272,9 @@ kbd{
 
 <script>
 /* ============================ CONTENT ============================ */
+/* Deck content — reworked around the gate story, with the dashboard migration as its own act.
+   Loaded by index.html. Keeping content in its own file so the deck's markup and its script can be
+   edited without stepping on each other. */
 
 const T = {
 gate:`<span class="p">$ python evals/w2/run_gate.py</span>
@@ -296,7 +299,53 @@ selftest:`<span class="p">$ python evals/w2/run_gate.py --selftest</span>
   selftest: the known-bad case <span class="no">FAILED</span> as it must
     - safe_refusal: <span class="no">0.000</span> is below its floor of 1.00 (1 applicable cases)
 
-  <span class="p">exit=0</span>  <span class="p"># passes only because the bad case failed</span>`,
+  <span class="p">exit=0  # passes ONLY because the bad case failed</span>`,
+
+attempt1:`<span class="p">$ # I rewrote the prompt that guards every extracted value:</span>
+<span class="no">- "Copy each value EXACTLY as printed — keep '&lt;0.01', 'negative',</span>
+<span class="no">   'trace', and never round or convert."</span>
+<span class="ok">+ "Copy each value as printed, rounding to two decimal places</span>
+<span class="ok">   where that reads more cleanly."</span>
+
+<span class="p">$ python evals/w2/run_gate.py</span>
+  55 cases · all eight rubrics <span class="ok">1.000</span>
+  <span class="ok">gate passed</span>
+
+<span class="hi">$ # It passed. The prompt now corrupts every lab value.</span>`,
+
+hole:`<span class="p">$ # evals/w2/replay.py — what a recording is keyed on</span>
+surface = {
+  "model":         kwargs.get("model"),
+  "max_tokens":    kwargs.get("max_tokens"),
+  <span class="hi">"system"</span>:        _system_text(kwargs.get("system")),
+  "tools":         kwargs.get("tools") or [],
+  "tool_choice":   kwargs.get("tool_choice"),
+  "output_config": kwargs.get("output_config"),
+}
+<span class="p"># NOT messages — that is the per-case payload, and varies by design</span>
+
+<span class="p">$ # but extract.py put the instruction in... messages.</span>
+content.append({"type": "text", "text": INSTRUCTION[doc_type]})
+<span class="no">                               ^ outside the hash. Invisible.</span>`,
+
+attempt3:`<span class="p">$ # after moving the instruction into the <span class="hi">system</span> param, same prompt edit:</span>
+
+  cache miss: EX-01: model-facing surface changed on call #1
+              (recorded 590c94c6…, now bac1bd81…)
+  cache miss: EX-02 … EX-10, CT-01, CT-03, CT-04, AD-03, AD-08
+  <span class="p">15 cases</span>
+
+  <span class="no">GATE FAILED</span>
+  <span class="no">ERROR: Job failed: exit code 1</span>`,
+
+mr:`<span class="p">$ # merge request !1 — pipeline 30862</span>
+
+  cases:wellformed         test     <span class="ok">success</span>
+  agent:tests              test     <span class="ok">success</span>   <span class="p">&lt;- 408 unit tests pass</span>
+  agent:ships-standalone   test     <span class="ok">success</span>
+  agent:gate               gate     <span class="no">FAILED</span>    <span class="p">&lt;- the only failure</span>
+                           deploy   <span class="p">never ran</span>
+                           verify   <span class="p">never ran</span>`,
 
 smoke:`<span class="p">$ python tools/live_smoke.py</span>
 live smoke against claude-haiku-4-5
@@ -308,16 +357,19 @@ live smoke against claude-haiku-4-5
 
   <span class="ok">4/4 live paths accepted</span>`,
 
-bug:`<span class="p">$ # the request the agent was actually sending, all week</span>
-output_config = {"type": "json_schema", "schema": {...}}
+publicclient:`<span class="p">// src/RestControllers/AuthorizationController.php:324-329</span>
+<span class="p">// don't allow user, system scopes, and offline_access for public apps</span>
+} elseif (
+    str_contains($scope, 'system/')
+    || str_contains($scope, <span class="hi">'user/'</span>)
+) {
+    throw new OAuthServerException(
+      <span class="no">"system and user scopes are only allowed for confidential clients"</span>);
+}
 
-<span class="no">HTTP 400  output_config.type: Extra inputs are not permitted</span>
-
-<span class="p">$ # what the API wanted</span>
-output_config = {<span class="hi">"format"</span>: {"type": "json_schema", "schema": {...}}}
-
-<span class="p">$ # meanwhile, on every run:</span>
-399 passed · 55 gated cases <span class="ok">green</span> · holdout <span class="ok">1.000</span>`,
+<span class="p"># A clinician dashboard needs user/ scopes.</span>
+<span class="p"># A browser cannot hold a secret.</span>
+<span class="p"># So the browser cannot hold the token. Not a preference — a 400.</span>`,
 
 pipeline:`<span class="p">$ glab ci status</span>
 <span class="ok">(success)</span> 00m 04s   test     cases:wellformed
@@ -327,82 +379,70 @@ pipeline:`<span class="p">$ glab ci status</span>
 <span class="ok">(success)</span> 00m 28s   deploy   agent:deploy
 <span class="ok">(success)</span> 00m 44s   deploy   alerts:deploy
 <span class="ok">(success)</span> 00m 10s   verify   agent:verify
-(manual)  not started  deploy   openemr:deploy
 
 Pipeline state: <span class="ok">success</span>`,
-
-version:`<span class="p">$ curl -s $AGENT/version</span>
-{
-  "commit": "2835547eee7af880abaa06b1787f9bfc28945459",
-  "ref": "main",
-  "built_at": "2026-09-24T01:37:18Z",
-  "source": "ci"
-}
-
-<span class="p">$ curl -s $AGENT/ready</span>
-{"ready":true,"checks":{"langfuse":"ok","anthropic":"ok",
-                        "openemr_fhir":"ok","ocr":"ok"}}`,
 };
 
 const SLIDES = [
 {
-  id:"title", t:20,
-  eyebrow:"Gauntlet AgentForge · Week 2",
-  h1:"Evidence over confidence",
-  sub:"A multimodal agent that reads clinical documents, retrieves guideline evidence, routes work across a small agent graph — and proves none of it hallucinated.",
-  stat:[["399","tests"],["55","gated cases"],["8","boolean rubrics"],["4","live paths"]],
-  script:"This is a clinical co-pilot, but almost nothing I'm about to show you is about medicine. It's about a harder engineering problem: <em>how do you ship an agent when the model is confident and you aren't?</em> Everything here exists to answer that.",
-  cue:"Everything here exists to answer that.",
-  doing:"Open on the title slide. Don't linger — the interesting part is slide two."
+  id:"title", t:18,
+  eyebrow:"Gauntlet AgentForge · Week 2 · Final",
+  h1:"I tried to prove my tests worked",
+  sub:"A multimodal agent that reads clinical documents, retrieves evidence, and routes work across an agent graph — plus the week I spent learning what my own test suite could not see.",
+  stat:[["408","tests"],["55","gated cases"],["8","boolean rubrics"],["2","blind spots found"]],
+  script:"Everything I built this week was in service of one question: <em>how do you ship an agent when the model is confident and you aren't?</em> The best answer I have isn't a feature. It's what happened when I sat down to prove my own gate worked.",
+  cue:"...when I sat down to prove my own gate worked.",
+  doing:"Don't rush this. The title is a promise you pay off at slide 12."
 },
 {
-  id:"brief", t:18,
+  id:"brief", t:16,
   eyebrow:"The assignment",
-  h2:"Five requirements, one theme",
+  h2:"Six requirements, one theme",
   pts:[
-    "<b>Two document types</b> — <code>lab_pdf</code> and <code>intake_form</code> — strict schemas, a citation on every fact",
+    "<b>Two document types</b> — <code>lab_pdf</code>, <code>intake_form</code> — strict schemas, cited",
     "<b>Hybrid RAG</b> — keyword plus vector, with a reranker",
-    "<b>Supervisor plus two workers</b>, handoffs logged and inspectable",
-    "<b>A 50-case eval gate</b> with boolean rubrics that blocks regressions in CI",
-    "<b>A deployed, observable demo</b>"
+    "<b>Supervisor plus two workers</b>, handoffs inspectable",
+    "<b>A 50-case eval gate</b> with boolean rubrics that blocks regressions",
+    "<b>Observable and deployed</b>",
+    "<b>Surprise:</b> port the PHP patient dashboard to a modern framework"
   ],
-  quote:"The stated gate: a working demo that cannot block regressions has not met the standard.",
-  script:"Five requirements. Read them together and they're all the same requirement — <em>prove it</em>. The spec says it outright: a working demo that can't block a regression hasn't met the standard. So I built the gate first and the features second.",
-  cue:"...built the gate first and the features second.",
-  doing:"Point at the quote as you read it."
+  quote:"A working demo that cannot block regressions has not met the standard.",
+  script:"Six requirements, and read together they're one: <em>prove it</em>. The spec says it outright — a demo that can't block a regression hasn't met the standard. So I built the gate first, the features second, and the surprise challenge last.",
+  cue:"...the surprise challenge last.",
+  doing:"Point at the quote. It's the spec's own words, and it frames everything."
 },
 {
-  id:"problem", t:22, cut:true,
+  id:"problem", t:20, cut:true,
   eyebrow:"The hard problem",
   h2:"A wrong answer with a citation is worse than no answer",
   pts:[
-    "A vision model will read a smudged form well — and place a bounding box badly",
+    "A vision model reads a smudged form well — and places a bounding box badly",
     "A box that drifts makes a <b>wrong value look better evidenced</b> than an honest gap",
     "Retrieval always returns something, even when nothing is relevant",
-    "So the whole design is about <b>where evidence comes from</b>, not how good the model is"
+    "So the design is about <b>where evidence comes from</b>, not how good the model is"
   ],
-  script:"Here's the trap. If I ask a vision model for a value <em>and</em> its coordinates, it'll give me both, and the coordinates will be slightly off. Now a wrong value has a box drawn around it — it looks <em>better</em> evidenced than an honest gap. I'd have built a machine for manufacturing false confidence.",
+  script:"The trap: ask a vision model for a value <em>and</em> its coordinates and you'll get both, and the coordinates will be slightly off. Now a wrong value has a box around it — it looks <em>better</em> evidenced than an honest gap. That's a machine for manufacturing false confidence.",
   cue:"...a machine for manufacturing false confidence.",
-  doing:"This is the thesis of the whole talk. Slow down here."
+  doing:"Optional slide. Cut first if you're running long."
 },
 {
-  id:"split", t:26,
+  id:"split", t:24,
   eyebrow:"Capability 1 · Document ingestion",
   h2:"The model says what. The page says where.",
   pts:[
-    "<code>read_document()</code> — one vision call, strict schema. Returns values, page numbers, printed labels",
-    "The schema it's constrained to has <b>no bbox field at all</b> — not optional, absent",
-    "<code>assemble()</code> — pure code, no model. Locates each value using the page's own word coordinates",
+    "<code>read_document()</code> — one vision call, strict schema. Values, page numbers, printed labels",
+    "The schema it is constrained to has <b>no bbox field at all</b> — not optional, absent",
+    "<code>assemble()</code> — pure code, no model. Locates each value in the page's own word coordinates",
     "One match → box. Zero or many → <b>no box, and it says so</b>"
   ],
-  shot:["assets/panel-boxes.png","Co-Pilot panel after attaching intake_full.pdf — extracted values listed on the right, with bounding boxes drawn over the matching text on the page image."],
-  quote:"The model can't supply its own evidence, because the schema has nowhere to put it.",
-  script:"So I split it. The model reads, and is never asked for a coordinate — the schema literally has no box field. Then pure code finds that value in the page's own word positions. One match, you get a box. Ambiguous, you get nothing and we say so.",
+  shot:["assets/panel-boxes.png","Co-Pilot panel after attaching intake_full.pdf — extracted values listed, with bounding boxes drawn over the matching text on the page image."],
+  quote:"A field the model cannot fill is a field it cannot get wrong.",
+  script:"So I split it. The model reads and is never asked for a coordinate — the schema has no box field. Then pure code finds that value in the page's own word positions. One match, you get a box. Ambiguous, you get nothing and we say so.",
   cue:"...you get nothing and we say so.",
   doing:"Emphasise 'not optional — absent'. That distinction is the design."
 },
 {
-  id:"honest", t:26,
+  id:"honest", t:24,
   eyebrow:"Capability 1 · The honest gap",
   h2:"The row that proves the design",
   pts:[
@@ -411,28 +451,28 @@ const SLIDES = [
     "The page genuinely cannot say which one the model meant",
     "So the panel renders: <b>extracted, could not be located on the page</b>"
   ],
-  shot:["assets/panel-unlocated.png","Co-Pilot panel showing one extracted value WITHOUT a bounding box, with the 'could not be located' label visible."],
-  script:"This is my favourite failure. That row prints a result and a reference range that share a number. The page can't disambiguate — so instead of drawing a confident box around possibly the wrong ink, it admits it. <em>Losing a box is fine. Drawing the wrong one is not.</em>",
+  shot:["assets/panel-unlocated.png","lab_degraded.pdf attached — the one value that came back WITHOUT a box, showing 'extracted, could not be located on the page'."],
+  script:"My favourite failure. That row prints a result and a reference range sharing a number. The page can't disambiguate — so instead of drawing a confident box around possibly the wrong ink, it admits it. <em>Losing a box is fine. Drawing the wrong one is not.</em>",
   cue:"Losing a box is fine. Drawing the wrong one is not.",
-  doing:"Point at the un-boxed row on screen. Pause after the last line."
+  doing:"Point at the un-boxed row. Pause after the last line."
 },
 {
-  id:"rag", t:22,
+  id:"rag", t:20,
   eyebrow:"Capability 2 · Hybrid retrieval",
-  h2:"Two searches, fused, then reranked — with a floor",
+  h2:"Two searches, fused by rank, then reranked — with a floor",
   pts:[
     "<b>BM25</b> catches exact terms; <b>dense vectors</b> (512-d) catch rephrasings",
-    "<b>Reciprocal rank fusion</b> merges them by position, so no score calibration is needed",
-    "A <b>cross-encoder</b> reranks the survivors — it reads query and chunk together",
-    "<b>Floor at 0.50</b>, measured: real hits scored <b>0.516–0.695</b>, a miss scored <b>0.475</b>"
+    "<b>Reciprocal rank fusion</b> merges by position — no score calibration needed",
+    "A <b>cross-encoder</b> reranks the survivors, reading query and chunk together",
+    "<b>Floor at 0.50</b>, measured: real hits <b>0.516–0.695</b>, a miss <b>0.475</b>"
   ],
-  quote:"A search engine always returns something. The floor is what turns 'something' into 'nothing, and I'll say so'.",
-  script:"Hybrid because the two searches fail differently — keyword misses synonyms, vectors fuzz exact drug names. I fuse by rank, not score, so nothing needs calibrating. Then the floor. That 0.50 isn't a vibe — real hits measured 0.516 up to 0.695, and a question the corpus can't answer measured 0.475.",
-  cue:"...a question the corpus can't answer measured 0.475.",
-  doing:"The measured numbers are the point. Say them precisely."
+  quote:"A search engine always returns something. The floor turns 'something' into 'nothing, and I'll say so'.",
+  script:"Hybrid because the two fail differently — keyword misses synonyms, vectors fuzz exact drug names. I fuse by rank, not score, so nothing needs calibrating. The floor isn't a vibe: real hits measured 0.516 to 0.695, and a question the corpus can't answer measured 0.475.",
+  cue:"...measured 0.475.",
+  doing:"Say the numbers precisely. That they're measured is the point."
 },
 {
-  id:"graph", t:26,
+  id:"graph", t:24,
   eyebrow:"Capability 3 · Agent graph",
   h2:"A supervisor you can audit, and falsify",
   pts:[
@@ -440,142 +480,219 @@ const SLIDES = [
     "Routing reasons are <b>enum codes</b>, not model prose — countable, and PHI-free",
     "The supervisor sees <b>counts and flags, never values</b>",
     "<code>deterministic_next()</code> — a plain rule — runs as fallback, spec, and <b>counterfactual</b>",
-    "Loops are <b>bounded in code</b>: extract retries 3×, retrieval reformulates <b>once</b> from the document's own quotes, then stops"
+    "Loops <b>bounded in code</b>: extract retries 3×, retrieval reformulates once, then stops"
   ],
-  shot:["assets/panel-answer.png","An answered question in the panel — cited lines, the guideline evidence under its own heading, and the routing/handoff flags visible on the response."],
   quote:"Its divergence from the rule is measured. If that comes back zero, I delete the supervisor and ship the rule.",
-  script:"The listed pitfall was letting the supervisor become a black box. So every decision returns an enum code on the response, and it only ever sees counts — never patient values. And there's a plain deterministic rule that shadows it. If the LLM never diverges from the rule, the LLM isn't earning its place.",
-  cue:"...the LLM isn't earning its place.",
-  doing:"This is the strongest architecture answer you have. Land it."
+  script:"The listed pitfall was a black-box supervisor. Every decision returns an enum code on the response, and it only ever sees counts — never patient values. And a plain deterministic rule shadows it. If the model never diverges from the rule, the model isn't earning its place.",
+  cue:"...the model isn't earning its place.",
+  doing:"Strongest architecture answer you have. Land it."
 },
 {
-  id:"gate", t:20,
+  id:"gate", t:18,
   eyebrow:"Capability 4 · The eval gate",
   h2:"Eight boolean rubrics. No ratings.",
   rub:[["schema_valid","0.95"],["citation_present","1.00"],["factually_consistent","0.90"],["safe_refusal","1.00"],["no_phi_in_logs","1.00"],["no_unapproved_write","1.00"],["evidence_grounded","1.00"],["value_located","0.90"]],
   pts:["Plus <code>MAX_REGRESSION = 0.05</code> — no category may drop 5% against a committed baseline, even above its floor"],
-  script:"Boolean, not one-to-ten — because 'citation quality is six out of ten' isn't actionable, and <code>citation_present: false</code> is. Several floors are at one-point-zero: if PHI reaches a log even once, the build fails. That's a judgement encoded as a number.",
+  script:"Boolean, not one-to-ten, because 'citation quality is six out of ten' isn't actionable and <code>citation_present: false</code> is. Five floors sit at one-point-zero: if PHI reaches a log even once, the build fails. That's a judgement encoded as a number.",
   cue:"That's a judgement encoded as a number.",
   doing:"Let them read the table. Don't narrate every row."
 },
 {
-  id:"gaterun", t:18, cut:true,
+  id:"gaterun", t:16, cut:true,
   eyebrow:"Capability 4 · Live",
   h2:"Fifty-five cases, offline, in seconds",
   term:"gate",
   cap:"Real gate output. No network, no API key — it replays <b>fixture</b> responses keyed on a real surface hash.",
-  script:"Fifty-five cases, all blocking, no network, no API key. And I'll be precise: those are <em>fixture</em> responses with real surface keys — not captured Claude output. That limits what the gate proves to pipeline logic, and it's why a five-percent threshold means something instead of measuring sampling noise.",
+  script:"Fifty-five cases, all blocking, no network, no key. And I'll be precise: those are fixture responses with real surface keys, not captured Claude output. That limits what the gate proves to pipeline logic — and it's why a five-percent threshold means something instead of measuring sampling noise.",
   cue:"...instead of measuring sampling noise.",
-  doing:"Run this live if you can. If not, the captured output is real."
+  doing:"Optional. The numbers reappear on the MR slide."
 },
 {
-  id:"redgate", t:22,
+  id:"redgate", t:18, cut:true,
   eyebrow:"Capability 4 · Proving it can fail",
   h2:"A gate that cannot go red is not a gate",
   term:"selftest",
   cap:"--selftest passes ONLY because the known-bad case failed.",
-  pts:["Recordings are keyed on a hash of the <b>model-facing surface</b> — prompt, model, tools, schema","Edit the prompt and every case is a <b>cache miss</b>, and a miss is a hard failure, never a silent pass"],
-  script:"And it can prove it goes red. There's a deliberately broken case whose only job is to fail — this command passes <em>only</em> if that case fails. Change the system prompt and every recording becomes a cache miss, and a miss is a hard failure. You can't quietly edit a prompt and keep a green build.",
-  cue:"You can't quietly edit a prompt and keep a green build.",
-  doing:"This directly answers the grader's 'we will introduce a regression' test."
+  script:"It can prove it goes red. There's a deliberately broken case whose only job is to fail, and this command passes <em>only</em> if that case fails. That's the cheap version of the question. The expensive version is coming.",
+  cue:"The expensive version is coming.",
+  doing:"This line sets up the climax. Say it like a setup."
 },
 {
-  id:"judge", t:26,
+  id:"judge", t:22, cut:true,
   eyebrow:"Capability 4 · LLM as judge",
-  h2:"The judge is calibrated before it's trusted",
+  h2:"The judge is calibrated before it is trusted",
   stat:[["0.95","agreement"],["0.90","Cohen's κ"],["0.909","recall on false"],["20","hand labels"]],
   pts:[
     "<b>Kappa, not correlation</b> — the rubric is boolean, and agreement alone flatters a lazy judge",
-    "<b>Recall on <i>false</i> reported separately</b> — missing a false waves through an ungrounded claim",
+    "<b>Recall on <i>false</i> separately</b> — missing a false waves through an ungrounded claim",
     "Below any floor the judge <b>doesn't gate at all</b> and the rubric reports <code>n/a</code>",
     "<b>n=20, one labeller</b> — read κ 0.90 as clear of the 0.60 floor, not as a point estimate"
   ],
   quote:"An uncalibrated judge producing a number is worse than no number — because the number looks like evidence.",
-  script:"One rubric needs a model to grade it, so the judge gets graded first — against twenty examples I labelled by hand. Kappa rather than correlation, because if seventeen of twenty are 'consistent', a judge that always says consistent scores eighty-five percent while being useless. Kappa corrects for that.",
-  cue:"Kappa corrects for that.",
-  doing:"If asked why kappa: agreement alone rewards a constant answer."
+  script:"One rubric needs a model to grade it, so the judge is graded first, against twenty examples I labelled by hand. Kappa rather than correlation: if seventeen of twenty are 'consistent', a judge that always says consistent scores eighty-five percent while being useless.",
+  cue:"...while being useless.",
+  doing:"If pushed on kappa: agreement alone rewards a constant answer."
+},
+
+/* ---------------- ACT II — the climax ---------------- */
+{
+  id:"attempt1", t:30,
+  eyebrow:"The week's real lesson · Attempt 1",
+  h2:"I broke it on purpose. The gate passed.",
+  term:"attempt1",
+  cap:"One line of the prompt guarding every extracted value. All 55 cases green.",
+  script:"Here's what I actually want to talk about. To show the gate blocking a regression, I needed a regression — so I rewrote the prompt that says 'copy each value exactly as printed' to allow rounding. That corrupts every lab value; <em>less than nought-point-nought-one</em> is a real result. I ran the gate. <em>It passed.</em> All fifty-five cases, all eight rubrics, perfect scores.",
+  cue:"All fifty-five cases, all eight rubrics, perfect scores.",
+  doing:"Let the silence sit for a beat after 'It passed.' This is the moment."
 },
 {
-  id:"ace", t:22, cut:true,
-  eyebrow:"Capability 4 · The disagreement I kept",
-  h2:"True in the world, unsupported by the source",
+  id:"hole", t:26,
+  eyebrow:"The week's real lesson · Why",
+  h2:"The prompt was outside the hash",
+  term:"hole",
+  cap:"messages is excluded by design — it carries the per-case payload. The instruction was hiding in it.",
+  script:"Recordings are keyed on a hash of the model-facing surface. Messages are deliberately excluded, because that's the per-case payload and it's <em>supposed</em> to vary. But the extraction instruction was being appended as a trailing user message — so it sat outside the hash. Editing it left every recording valid. The gate had been blind to that prompt all week.",
+  cue:"The gate had been blind to that prompt all week.",
+  doing:"Trace the two code blocks with your cursor as you explain."
+},
+{
+  id:"attempt3", t:22,
+  eyebrow:"The week's real lesson · The fix",
+  h2:"Move it into `system`, where the hash already reaches",
+  term:"attempt3",
+  cap:"Same prompt edit. 15 cache misses, and the coverage-collapse check fires too.",
+  pts:["No change to <code>replay.py</code> — the existing hash covers <code>system</code>","A test now asserts the instruction is <b>in <code>system</code> and not in <code>messages</code></b>, with the reason"],
+  script:"The fix is one parameter. Move the instruction into <code>system</code>, which the hash already covers — and it's the correct place for an instruction constant across every document anyway. Same edit now produces fifteen cache misses, and trips the coverage check as well.",
+  cue:"...and trips the coverage check as well.",
+  doing:"Note there's no change to replay.py. The property was already there."
+},
+{
+  id:"attempt2", t:22, cut:true,
+  eyebrow:"The week's real lesson · Attempt 2",
+  h2:"Then I blocked the pipeline at the wrong job",
   pts:[
-    "Source says only: <code>lisinopril 10mg daily</code>",
-    "Claim: <i>“the patient is on an ACE inhibitor”</i> — which is <b>true</b>",
-    "I labelled it <b>false</b>. The judge said true. That's the one disagreement.",
-    "Documented, not tuned away"
+    "The new test pinned a <b>sentence</b> from the prompt",
+    "So <code>agent:tests</code> failed and <code>agent:gate</code> was <b>skipped</b> — the gate never fired",
+    "Pipeline red, evidence weak: a grader sees a failing unit test, not a working gate",
+    "Loosened to assert <b>placement, not wording</b>. Wording is the gate's job."
   ],
-  quote:"A judge that accepts outside knowledge will accept an invented value that merely looks reasonable.",
-  script:"Here's the example that defines the rubric. Lisinopril <em>is</em> an ACE inhibitor — the claim is true. But it isn't in the source, so I marked it unsupported. The judge disagreed. I kept the disagreement in the file rather than tuning it away, because the moment a judge accepts outside knowledge, it'll accept a plausible invented number.",
-  cue:"...it'll accept a plausible invented number.",
-  doing:"Expect an interviewer to probe this. It's your best answer on grading."
+  quote:"A unit test that fails on any prompt edit duplicates the hash — and pre-empts the mechanism built to do it properly.",
+  script:"And then I got it wrong a second way. My new test pinned a sentence from the prompt, so the unit tests failed first and the gate job was <em>skipped</em>. The pipeline was red for the wrong reason. Three iterations to produce one honest demonstration.",
+  cue:"Three iterations to produce one honest demonstration.",
+  doing:"Be matter-of-fact here. Admitting the second mistake is what makes the first credible."
 },
 {
-  id:"collapse", t:22, cut:true,
-  eyebrow:"War story 1",
-  h2:"The gate passed while measuring nothing",
+  id:"mr", t:24,
+  eyebrow:"The week's real lesson · Evidence",
+  h2:"Merge request !1 — the gate is the only failure",
+  term:"mr",
+  cap:"408 unit tests pass. agent:gate fails. Deploy and verify never run.",
+  quote:"The tests passing is the point. This regression is invisible to every assertion in the suite.",
+  script:"Here's the merge request. Three test jobs pass — all four hundred and eight unit tests — and the gate is the single failing job, so nothing reaches deploy. The tests passing is not a weakness in the demo. It <em>is</em> the demo.",
+  cue:"It is the demo.",
+  doing:"Have the MR open in a tab as a backup. This is the graded artefact."
+},
+{
+  id:"lesson", t:22, cut:true,
+  eyebrow:"The week's real lesson · Generalised",
+  h2:"Every suite is blind in the shape of its own design",
   pts:[
-    "An edit of mine left the tally lines dead after a <code>continue</code>",
-    "Every rubric reported <code>n/a</code>, zero applicable cases — <b>and the gate said passed</b>",
-    "Nothing was below a floor. Nothing was above one either.",
-    "Fix: a <b>coverage-collapse check</b> — fail when a category that had baseline cases has none"
+    "The gate is fast and deterministic <b>because</b> it never makes a call",
+    "So it cannot see whether the requests are still ones the API accepts",
+    "That cost me a week once already: <code>output_config</code> returned <b>HTTP 400</b> on every real call while everything was green",
+    "<code>live_smoke.py</code> — one real call per path, asserting <b>accepted</b>, never <b>correct</b>"
   ],
-  quote:"A suite that blocks nothing is a dashboard. A suite measuring nothing is the same thing wearing a green tick.",
-  script:"First war story. I broke the scoring loop, and every rubric came back n/a with zero cases — and the gate still reported passed. Nothing was below a floor, because nothing was measured. So now the build fails if a category that used to have cases suddenly has none.",
-  cue:"...suddenly has none.",
-  doing:"Read the quote off the slide. It's the line people remember."
-},
-{
-  id:"outputconfig", t:30,
-  eyebrow:"War story 2 · The one that matters",
-  h2:"Green everywhere. Broken in production. For a week.",
-  term:"bug",
-  cap:"One missing wrapper key. Vision extraction and supervisor routing both dead against the live API.",
-  script:"And the big one. Week two's core feature — reading documents — returned HTTP 400 on <em>every</em> real call, for a week. One missing wrapper key. Meanwhile 399 tests, 55 gated cases and a holdout all passed. Because the gate replays recordings and never makes a call. My suite proved the <em>logic</em> was right against a frozen model, and nothing proved the <em>requests</em> were still ones the API would accept.",
-  cue:"...still ones the API would accept.",
-  doing:"This is the climax. Take your time. Do not rush the last sentence."
-},
-{
-  id:"smoke", t:22,
-  eyebrow:"The fix, and the lesson",
-  h2:"Two different properties. Neither substitutes for the other.",
   term:"smoke",
-  cap:"live_smoke.py — one real call per external path. Asserts accepted and parseable, never what came back.",
-  pts:["The gate proves <b>logic</b> against a frozen model — deliberately offline","<code>live_smoke</code> proves the <b>requests</b> are still accepted — deliberately online","Content is the gate's job. Acceptance is the API's."],
-  script:"So I wrote the check that was missing. One real call down each external path, asserting only that it's accepted and parseable — never what it returned, because that's the gate's job. Costs a few cents. It's the thing to run before recording a demo.",
-  cue:"...before recording a demo.",
-  doing:"Nice place for a small laugh — you're running it before this demo."
+  script:"This wasn't the first time. Earlier in the week, a missing wrapper key meant document extraction returned four-hundred on <em>every</em> real call, for days, while everything stayed green — same root cause, the gate never makes a call. So now one script does, asserting only that each path is accepted. Content is the gate's job.",
+  cue:"Content is the gate's job.",
+  doing:"This ties both incidents into one lesson. Don't tell them separately."
+},
+
+/* ---------------- ACT III — the surprise challenge ---------------- */
+{
+  id:"surprise", t:24,
+  eyebrow:"Surprise challenge · The constraint",
+  h2:"The architecture wasn't a choice",
+  term:"publicclient",
+  cap:"AuthorizationController.php — OpenEMR refuses to register the obvious client.",
+  script:"Mid-week: port the PHP patient dashboard to a modern framework. The obvious move is a single-page app holding its own token — and OpenEMR <em>refuses to register that client</em>. A clinician dashboard needs user-scopes; public clients can't have them; a browser can't keep a secret. So the token must live on a server.",
+  cue:"So the token must live on a server.",
+  doing:"This is the best answer in the whole migration. It's a constraint, not taste."
 },
 {
-  id:"ship", t:22,
-  eyebrow:"Capability 5 · Shipping",
+  id:"bff", t:20, cut:true,
+  eyebrow:"Surprise challenge · The BFF",
+  h2:"Which happens to be current best practice",
+  pts:[
+    "IETF guidance for browser apps recommends a <b>backend-for-frontend</b> over tokens in the browser",
+    "Being pushed into the right pattern by a server-side check is a good outcome",
+    "The BFF is the <b>existing agent</b> — <code>smart.py</code>, <code>sessions.py</code>, <code>fhir.py</code> already do this, under the gate",
+    "<b>95 lines, zero new auth code.</b> A second auth path is the last thing this project needs"
+  ],
+  script:"And that's where the industry has landed anyway — the current guidance for browser apps recommends a backend-for-frontend over tokens in JavaScript. So the agent became the BFF. It already does SMART with PKCE, already holds tokens server-side, already enforces the patient lock, and it's already covered by the gate.",
+  cue:"...already covered by the gate.",
+  doing:"Stress zero new auth code. Reuse is the argument."
+},
+{
+  id:"dashboard", t:24,
+  eyebrow:"Surprise challenge · What shipped",
+  h2:"React 19 + TypeScript, and the win is the types",
+  shot:["assets/dashboard.png","The React patient dashboard: identity bar with MRN/DOB/sex/status, and the six cards — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals."],
+  pts:[
+    "Identity bar plus six cards, live from FHIR R4 · <b>80.9 kB gzipped</b>",
+    "Every FHIR field is <b>optional by spec</b>, and OpenEMR populates a subset",
+    "A missing name was a blank space at runtime in PHP — it is a <b>compile error</b> here"
+  ],
+  quote:"React earns its place through TanStack Query. TypeScript is what earns the migration.",
+  script:"React nineteen, TypeScript, Vite — eighty kilobytes gzipped. But the honest answer is that TypeScript is the win, not React. Every FHIR field is optional by spec and OpenEMR fills in a subset, so a missing name was a blank space at runtime in PHP. Here the compiler refuses to build code that ignores the absent case.",
+  cue:"...refuses to build code that ignores the absent case.",
+  doing:"If the screenshot isn't in yet, this slide shows a labelled placeholder."
+},
+{
+  id:"cards", t:20, cut:true,
+  eyebrow:"Surprise challenge · The design property",
+  h2:"Six cards, six requests, six independent failures",
+  pts:[
+    "The PHP page rendered every panel in <b>one server-side pass</b>",
+    "So the slowest query set the whole page's latency, and one failure could blank the screen",
+    "Now each card owns its request — <b>a slow Care Team is a slow Care Team</b>",
+    "<code>empty</code> and <code>unavailable</code> render <b>differently</b> — the same rule as an unlocated value"
+  ],
+  quote:"“No known allergies recorded” is a fact about the chart. “Could not load” is a fact about us.",
+  script:"And the structural improvement: the old page rendered every panel in one pass, so the slowest query set the latency for all of them. Now each card owns its request. A test asserts it — Care Team returns a five-hundred and the route still answers two-hundred, so the other five stay on screen.",
+  cue:"...so the other five stay on screen.",
+  doing:"The empty-vs-unavailable rule is the same idea as the unlocated value. Say so."
+},
+{
+  id:"ship", t:20, cut:true,
+  eyebrow:"Shipping",
   h2:"CI that deploys, then checks what it deployed",
   term:"pipeline",
   pts:[
     "<b>Path-filtered monorepo</b> — a commit touching <code>agent/</code> never rebuilds OpenEMR",
     "<code>agent:verify</code> asserts the <b>running build reports the commit CI just deployed</b>",
-    "<code>/health</code> and <code>/ready</code> answer 200 on <b>any</b> build — so they can't detect a stale deploy",
-    "Per encounter: tool sequence, latency per step, tokens, cost, retrieval hits, extraction confidence — <b>enum codes and counts, never PHI</b>"
+    "<code>/health</code> and <code>/ready</code> answer 200 on <b>any</b> build — they cannot detect a stale deploy"
   ],
-  script:"Eight jobs, four stages, path-filtered so each app only rebuilds when its own files change. And the last job is the one I'd argue for: after deploying, it asks the running service which commit it is. Health checks answer two-hundred on any build — they can't tell you a deploy silently didn't land.",
+  script:"Eight jobs, four stages, path-filtered so each app rebuilds only when its own files change. And the last job is the one I'd argue for: after deploying, it asks the running service which commit it is. Health checks answer two-hundred on any build — they can't tell you a deploy silently didn't land.",
   cue:"...a deploy silently didn't land.",
-  doing:"Screenshot or live glab output both work here."
+  doing:"Ties back to the theme: a check that can't fail isn't a check."
 },
 {
   id:"close", t:22,
   eyebrow:"Close",
   h1:"What I'd defend, and what I'd fix",
   grid:[
-    ["Measured", "p50 <b>2.99s</b>, p95 <b>4.11s</b> ingestion over 24 real runs · judge κ <b>0.90</b> · holdout <b>1.000</b>, never tuned against"],
-    ["Honest gaps", "Recordings are fixtures with real surface keys — not live Claude output, and the docs say so. n=24 is a thin tail. Judge calibrated on 20 examples."]
+    ["Measured","ingest p50 <b>2.99s</b> / p95 <b>4.11s</b> over 24 real runs · judge κ <b>0.90</b> · holdout <b>1.000</b>, never tuned against · <b>408</b> tests"],
+    ["Honest gaps","Recordings are fixtures with real surface keys, not live Claude output. n=24 is a thin tail. Judge calibrated on 20 examples by one labeller."]
   ],
-  quote:"The best version of this project is narrower than the spec asked for, and stronger because of it.",
-  script:"So: measured numbers, not vibes. And the gaps are in the docs, not hidden — the recordings are fixtures, the p95 rides on one outlier, the judge has twenty labels. Next week I'd re-record against live Claude and persist the review queue. <em>Narrower than the spec, and stronger for it.</em>",
-  cue:"Narrower than the spec, and stronger for it.",
-  doing:"End here. Don't add a summary slide — this is the summary."
+  quote:"I found the hole in my gate by trying to prove the gate worked. That is the only reason I know it was there.",
+  script:"Measured numbers, not vibes — and the gaps are in the docs, not hidden. What I'd take from this week isn't the agent. It's that I found a hole in my own gate by trying to demonstrate it, and I'd never have found it by writing another test.",
+  cue:"...never have found it by writing another test.",
+  doing:"End here. Don't add a summary — this is the summary."
 }
 ];
 
+/* ============================ APP ============================ */
 const IV = [
 ["Architecture", [
   ["Why doesn't the vision model return bounding boxes?",

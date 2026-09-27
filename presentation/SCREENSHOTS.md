@@ -1,6 +1,6 @@
 # Screenshots the deck expects
 
-Drop these three PNGs into `presentation/assets/`. Until a file exists, that slide shows a dashed
+Drop these four PNGs into `presentation/assets/`. Until a file exists, that slide shows a dashed
 placeholder naming the file and describing the shot — so the deck is presentable right now, and each
 screenshot you add just replaces a placeholder.
 
@@ -11,6 +11,7 @@ Filenames must match exactly.
 | `assets/panel-boxes.png` | 4 — *The model says what. The page says where.* | Co-Pilot panel after attaching `intake_full.pdf`: extracted values listed, **bounding boxes drawn over the matching text** on the page image. The boxes are the point — frame so several are visible at once. |
 | `assets/panel-unlocated.png` | 5 — *The row that proves the design* | `lab_degraded.pdf` attached, showing the one value that came back **without** a box, reading *“extracted, could not be located on the page.”* This is the most important shot in the deck. |
 | `assets/panel-answer.png` | 7 — *A supervisor you can audit* | An answered question: cited lines, guideline evidence under its own heading, and the **routing/handoff flags** visible on the response. |
+| `assets/dashboard.png` | 20 — *React 19 + TypeScript* | The **new React dashboard**: identity bar (name, MRN, DOB, sex, status) and all six cards visible — Allergies, Problem List, Medications, Prescriptions, Care Team, Vitals. Launch it at `/dashboard/launch` from the chart. Frame wide enough to show the card grid. |
 
 Both demo PDFs are already on your Desktop (`intake_full.pdf`, `lab_degraded.pdf`). If you need to
 regenerate them:
