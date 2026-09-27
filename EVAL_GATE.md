@@ -160,9 +160,25 @@ real vision call returned **HTTP 400** while 399 tests, 55 gated cases and a hol
 > Derek: *"The blocked merge request matters most. It's how we see your gate actually fire without running
 > it ourselves."*
 
-**Merge request:** _see `REGRESSION_MR.md` for the link and the blocked pipeline._
+**Branch:** `regression/eval-gate-demo` @ `6e63a4d`
+**Pipeline:** [#30850](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/pipelines/30850) — **failed at `agent:gate`** in 46 s
 
-The regression introduced, the job that caught it, and the exact failure output are recorded there.
+```
+(success) test  cases:wellformed        (success) test  agent:tests      <- unit tests PASS
+(success) test  agent:ships-standalone  (failed)  gate  agent:gate       <- the gate blocks it
+                                        deploy / verify stages never run
+```
+
+The regression is one line of the vision extraction prompt, rewritten to permit rounding — which would
+corrupt every extracted lab value, since `<0.01` is a real result. It touches no logic and passes all 408
+unit tests. Only the gate catches it, via 15 cache misses on the model-facing surface hash.
+
+**Full write-up, including the two iterations it took to get this demonstration honest:
+[`REGRESSION_MR.md`](REGRESSION_MR.md).** The first attempt at this regression *passed* — the extraction
+prompt was outside the surface hash. That hole is fixed in `5034644`.
+
+Merge requests are disabled on the project (`merge_requests_enabled: False`), so the MR itself is pending
+one settings change; the pipeline evidence above already exists and is linked.
 
 ---
 
