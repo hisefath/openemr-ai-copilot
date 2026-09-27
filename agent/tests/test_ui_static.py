@@ -149,11 +149,18 @@ def test_handle_read_from_meta_removed_and_used_only_as_bearer(js):
     allowed = [r"const sessionHandle = meta \? meta\.content : '';", r"'Authorization': 'Bearer ' \+ sessionHandle",
                r"if \(!?sessionHandle\)"]
     uses = [line.strip() for line in text.splitlines() if "sessionHandle" in line]
-    # Every use must match an allowed pattern; the count is deliberately not pinned. A second legitimate bearer
-    # header (api.objectURL, which an <img> tag cannot send for itself) is not a new way for the handle to
-    # escape, and a fixed count would fail on it while catching nothing the pattern check misses.
     assert uses
-    assert all(any(re.search(p, use) for p in allowed) for use in uses), uses
+    # Every OCCURRENCE has to be accounted for, not every line. Deleting the allowed forms and requiring no
+    # mention to survive is what closes the same-line case: `headers: {'Authorization': 'Bearer ' +
+    # sessionHandle}, body: sessionHandle` satisfies an unanchored per-line search while exfiltrating the
+    # handle in the body, and it would also have satisfied the `len(uses) == 3` this replaces, since it is
+    # still one line. The count only ever guarded against a fourth line, and it failed on the legitimate
+    # fourth one (api.objectURL's bearer, which an <img> tag cannot send for itself).
+    for use in uses:
+        residue = use
+        for p in allowed:
+            residue = re.sub(p, "", residue)
+        assert "sessionHandle" not in residue, use
 
 
 @pytest.mark.parametrize("js", JS)
