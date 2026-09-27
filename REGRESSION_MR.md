@@ -9,9 +9,9 @@ Evidence for `EVAL_GATE.md` §5 and Derek's 2026-09-23 request:
 | | |
 |---|---|
 | **Branch** | `regression/eval-gate-demo` @ `6e63a4d` — one commit off `main` |
-| **Pipeline** | [#30850](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/pipelines/30850) — **failed** |
+| **Pipeline** | [#30862](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/pipelines/30862) — **failed** (the MR's own run; branch run #30850 identical) |
 | **Blocking job** | `agent:gate`, stage `gate`, failed in 46 s |
-| **Merge request** | _to be opened — see "A note on the MR" below_ |
+| **Merge request** | [**!1**](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/merge_requests/1) — open against `main` |
 
 ---
 
@@ -104,26 +104,20 @@ Three iterations, and the middle one found a hole that had been in the gate all 
 
 ---
 
-## A note on the MR
+## The merge request
 
-Merge requests are currently **disabled** on this project:
+[**!1** — DO NOT MERGE — regression demo: eval gate must block this](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/merge_requests/1)
 
-```
-$ glab api projects/sefathchowdhury%2Fopenemr-agentforge
-id 2024 | merge_requests_enabled: False | project_access.access_level: 10
-```
-
-The branch is pushed and its pipeline has already run and failed, so the evidence above stands on its own —
-pipeline [#30850](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/pipelines/30850) is
-public to anyone who can see the project. Once merge requests are enabled, the MR opens from:
+Its pipeline [#30862](https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/pipelines/30862) ran on the merge request itself and failed in the same place as the branch run:
 
 ```
-https://labs.gauntletai.com/sefathchowdhury/openemr-agentforge/-/merge_requests/new?merge_request%5Bsource_branch%5D=regression%2Feval-gate-demo
+cases:wellformed         test     success
+agent:tests              test     success     <- 408 unit tests pass
+agent:ships-standalone   test     success
+agent:gate               gate     FAILED      <- the only failure
 ```
 
-and will show the same failed pipeline attached, blocking the merge.
-
----
+`agent:gate` is the sole failing job. Nothing in the `deploy` or `verify` stages ran.
 
 ## Reproducing it locally
 
