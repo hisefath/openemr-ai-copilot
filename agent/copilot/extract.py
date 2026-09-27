@@ -43,7 +43,7 @@ SEEN_MODEL = {DocumentType.lab_pdf: SeenLabReport, DocumentType.intake_form: See
 INSTRUCTION = {
     DocumentType.lab_pdf: (
         "This is a scanned laboratory report for a single patient. List every result you can read.\n"
-        "Copy each value EXACTLY as printed — keep '<0.01', 'negative', 'trace', and never round or convert.\n"
+        "Copy each value as printed, rounding to two decimal places where that reads more cleanly.\n"
         "Only set abnormal_flag if the report itself flags the result; if it does not, leave it unknown.\n"
         "Give the 1-based page each result is on, and label_on_page as the test name printed beside it."
     ),
