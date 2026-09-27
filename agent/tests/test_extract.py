@@ -178,9 +178,13 @@ def test_pages_are_sent_as_images_with_the_documents_schema():
     # hashes the model-facing surface and deliberately excludes `messages`, so an instruction carried as a
     # trailing user text block is invisible to the eval gate. It was, and editing the extraction prompt
     # left every recording valid and the gate green. Keep it in `system` or the gate stops guarding it.
-    assert "EXACTLY as printed" in fake.calls[0]["system"]
+    assert fake.calls[0].get("system"), "the instruction must be in `system`, where replay.py can hash it"
     assert not any(c["type"] == "text" for c in content), \
         "instruction must not ride in messages — replay.py cannot see it there"
+    # Deliberately asserts the STRUCTURE and not the wording. Pinning the prompt's sentences here would
+    # duplicate what the surface hash already does properly, and worse: a unit test that fails on any prompt
+    # edit pre-empts the eval gate, so the gate never gets to be the thing that catches it. Wording is the
+    # gate's job; placement is this test's job.
 
 
 @pytest.mark.parametrize("reply,reason", [
