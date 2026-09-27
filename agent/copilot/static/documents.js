@@ -10,6 +10,7 @@
 
     const UPLOAD_TIMEOUT_MS = 120000;   // server ingest deadline is 90 s; this only ends a hung connection
     const DECISION_TIMEOUT_MS = 30000;
+    const PAGE_TIMEOUT_MS = 30000;      // a page render is a plain GET; this only ends a hung connection
 
     const KIND_LABEL = {
         allergy: 'Allergy', medication: 'Medication', medical_problem: 'Problem', lab: 'Lab result',
@@ -21,6 +22,8 @@
     function mount(root, api, el) {
         let currentDoc = null;      // { document_id, pages: [{page,width,height}] }
         let boxes = [];             // { page, bbox, label } for the overlay
+        let pageURL = null;         // object URL of the page render on screen; revoked before the next one
+        let pageSeq = 0;            // bumped per showPage() so a slow render cannot overwrite a newer one
         const nodes = {};
 
         function build() {
@@ -119,11 +122,23 @@
         function showPage(page) {
             nodes.viewer.hidden = false;
             nodes.viewer.replaceChildren();
+            if (pageURL) { URL.revokeObjectURL(pageURL); pageURL = null; }
+            // Two page renders can be in flight at once on a multi-page document. Without this generation
+            // guard the slower one would overwrite pageURL and leak the other, and could paint the page the
+            // reader has already clicked away from.
+            const seq = ++pageSeq;
             const frame = el('div', 'doc-page');
             const img = document.createElement('img');
             img.alt = 'Page ' + page + ' of the attached document';
-            img.src = '/api/session/documents/' + encodeURIComponent(currentDoc.document_id)
-                + '/page/' + page + '.png';
+            // Authorized fetch, not a bare src: see api.objectURL. Without it every page render is a 401 and
+            // the boxes below are positioned over nothing.
+            api.objectURL('/api/session/documents/' + encodeURIComponent(currentDoc.document_id)
+                + '/page/' + page + '.png', PAGE_TIMEOUT_MS).then(function (url) {
+                if (!url) return;
+                if (seq !== pageSeq) return URL.revokeObjectURL(url);
+                pageURL = url;
+                img.src = url;
+            });
             frame.append(img);
 
             // Boxes are placed as a PERCENTAGE of the page's own dimensions, so the overlay stays aligned at any

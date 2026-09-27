@@ -160,6 +160,27 @@
         };
     }
 
+    // An <img src> carries no Authorization header, and the panel sends credentials: 'omit', so a page render
+    // requested by the tag alone is always a 401 and the citation overlay draws its boxes on a broken image.
+    // Fetched here instead and handed over as an object URL: the handle stays in this one closure, where
+    // putting it in the src as a query parameter would leak it into access logs and referrers.
+    api.objectURL = async function (path, timeoutMs) {
+        let res;
+        try {
+            res = await fetch(path, {
+                method: 'GET',
+                headers: {'Authorization': 'Bearer ' + sessionHandle},
+                credentials: 'omit',
+                cache: 'no-store',
+                referrerPolicy: 'no-referrer',
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+        } catch (err) {
+            return null;
+        }
+        return res.ok ? URL.createObjectURL(await res.blob()) : null;
+    };
+
     function expire() {
         expired = true;
         $('fatal').textContent = TEXT.expired;
@@ -198,6 +219,7 @@
             }
             return res.data;
         };
+        call.objectURL = api.objectURL;   // page renders need the header too; see api.objectURL
         window.CopilotDocuments.mount(root, call, el);
     }
 
